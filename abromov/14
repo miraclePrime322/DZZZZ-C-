@@ -3,5 +3,17 @@
 using namespace std;
  int main ()
 {
-    int P,r,R;
-    cout << 
+    int P,r,R,S;
+    cout << "введите внешиний"<< endl;
+    cin >> r;
+    R=20; 
+    P=3.14;
+    if (r<20){
+        cout << "блин так нельзя" << endl;
+    }
+    else{
+    S=P*(r*r-R*R);
+    cout << S << " Площадь кольца";
+    return 0 ;
+}
+} 
