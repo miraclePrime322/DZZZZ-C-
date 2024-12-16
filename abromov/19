@@ -1,0 +1,12 @@
+#include <bits/stdc++.h>
+#include <cmath>
+using namespace std;
+ int main ()
+{
+    int a,u,s,t;
+    cout << "Введите значения"<< endl;
+    cin >> u >> a >> s;
+    t=sqrt((2*s)/(u*u+2*a*s));
+    cout << t << " времени";
+    return 0;
+} 
