@@ -2,18 +2,13 @@
 #include <cmath>
 using namespace std;
  int main ()
-{
-    int P,r,R,S;
-    cout << "введите внешиний"<< endl;
-    cin >> r;
-    R=20; 
-    P=3.14;
-    if (r<20){
-        cout << "блин так нельзя" << endl;
-    }
-    else{
-    S=P*(r*r-R*R);
-    cout << S << " Площадь кольца";
-    return 0 ;
+{ 
+    int m1,m2,F,r;
+    double G;
+    cout << "введите массу первого" << "введите массу второго" << "введите расстояние";
+    cin >> m1 >> m2 >> r;
+    G=6,67 * (pow (10.0,-11.0));
+    F=G * (m1 * m2) / r * r;
+    cout << F << " Сила притяжения";
+    return 0;
 }
-} 
