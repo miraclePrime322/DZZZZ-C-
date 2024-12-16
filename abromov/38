@@ -1,0 +1,18 @@
+#include <bits/stdc++.h>
+#include <cmath>
+using namespace std;
+ int main ()
+{
+    int z,x,y;
+    cout << "введите x , y" << endl;
+    cin >> x >> y ;
+    if (z=x-y, x>y){
+        cout << z << " йоу" <<endl;
+    }
+    else 
+    {
+        z=y-x+1;
+        cout << z << endl;
+    }
+return 0;
+}
