@@ -1,0 +1,31 @@
+#include <bits/stdc++.h>
+#include <cmath>
+using namespace std;
+ int main ()
+{
+double a ,b ,c;
+cout << "введите три действительных числа"<< endl;
+cin >> a >> b >> c;
+if ((1<=a) && (a<=3)){
+    cout << a;
+}
+else
+{
+    cout << "абаюнда"<<endl;
+} 
+if ((1<=b) && (b<=3)){
+    cout << b;
+}  
+else
+{
+    cout << "николос ДЖЕКСОн"<<endl;
+}
+if ((1<=c) && (c<=3)){
+    cout << c;
+}
+else
+{
+    cout << "обидно"<<endl;
+}
+return 0;
+}
