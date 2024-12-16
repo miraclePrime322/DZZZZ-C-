@@ -1,0 +1,23 @@
+#include <bits/stdc++.h>
+#include <cmath>
+using namespace std;
+ int main ()
+{
+int n,g ;
+cout << "сколько тебе ?"<<endl;
+cin >> n;
+if (n>100){
+    cout<<"Число больше 100, введите другое значение "<<endl;
+    cin >> n;
+}
+g=n%10;
+if (g==1 && n!=11){
+    cout << n << "год "; 
+}
+if ((g==2 || g==3 || g ==4) && (n!=12 && n!=13 && n!=14)){
+  cout << n << "года ";
+} 
+if (g==5 || g==6 || g==7 || g ==8 || g==9 || n==11 || n==12 || n==13 || n==14 || n==100){ 
+    cout << n << " лет ";}
+
+}
