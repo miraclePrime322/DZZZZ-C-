@@ -1,0 +1,17 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() 
+{
+    string chislo;
+    cout << "введите циферки" << endl;
+    cin >> chislo;
+    int sum = 0;
+    for (char digit : chislo) {
+        sum += digit - '0';
+    }
+    cout << chislo << " " << sum << endl;
+    
+    return 0;
+
+}
