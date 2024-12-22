@@ -1,0 +1,49 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+void replaceVowels(string &str) {
+    const char vowels[] = {'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'};
+    for (char &ch : str) {
+        for (const char vowel : vowels) {
+            if (ch == vowel) {
+                ch = '_';
+                break;
+            }
+        }
+    }
+}
+
+int main() {
+    string inputString = "Hello, world!";
+    cout << "Исходная строка: " << inputString << endl;
+
+    replaceVowels(inputString);
+
+    cout << "Измененная строка: " << inputString << endl;
+
+    return 0;
+}
+
+#include <iostream>
+#include <algorithm>
+#include <string>
+using namespace std;
+
+string toLowerCase(const string& str) {
+    string lowerStr = str;
+    transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+                   [](unsigned char c){ return tolower(c); });
+    return lowerStr;
+}
+
+int main() {
+    string inputString = "HeLlO, WoRlD!";
+    cout << "Исходная строка: " << inputString << endl;
+
+    string outputString = toLowerCase(inputString);
+    cout << "Преобразованная строка: " << outputString << endl;
+
+    return 0;
+}
+
