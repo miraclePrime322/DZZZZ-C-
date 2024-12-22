@@ -1,0 +1,175 @@
+#include <iostream>
+using namespace std;
+
+int main() {
+    setlocale(LC_ALL, "Russian");
+    int arr[] = { 1, 2, 3, 4, 2, 5, 6, 3, 7, 8, 1, 9, 3 };
+    int size = sizeof(arr) / sizeof(arr[0]);
+    bool printed[10] = { false }; 
+
+    cout << "Повторяющиеся значения: ";
+
+   
+    for (int i = 0; i < size; i++) {
+        int count = 0;
+
+        for (int j = 0; j < size; j++) {
+            if (arr[i] == arr[j]) {
+                count++;
+            }
+        }
+        if (count >= 2 && !printed[arr[i]]) {
+            cout << arr[i] << " ";
+            printed[arr[i]] = true; 
+        }
+    }
+
+    cout << endl;
+    return 0;
+}
+
+#include <iostream>
+using namespace std;
+
+int main() {
+    int n, m;
+
+    setlocale(LC_ALL, "Russian");
+    cout << "Введите количество строк (n): ";
+    cin >> n;
+    cout << "Введите количество столбцов (m): ";
+    cin >> m;
+
+   
+    double matrix[10][10];
+
+    cout << "Введите элементы матрицы:" << endl;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            cin >> matrix[i][j];
+        }
+    }
+
+    double max_of_mins = matrix[0][0];
+    int max_row_index = 0;
+    int max_col_index = 0;
+
+    for (int i = 0; i < n; i++) {
+        double min_in_row = matrix[i][0];
+        int min_col_index = 0;
+
+
+        for (int j = 1; j < m; j++) {
+            if (matrix[i][j] < min_in_row) {
+                min_in_row = matrix[i][j];
+                min_col_index = j;
+            }
+        }
+        if (min_in_row > max_of_mins) {
+            max_of_mins = min_in_row;
+            max_row_index = i;
+            max_col_index = min_col_index;
+        }
+    }
+
+    
+    cout << "Максимальное из минимальных элементов: " << max_of_mins << endl;
+    cout << "Индексы: (" << max_row_index << ", " << max_col_index << ")" << endl;
+
+    return 0;
+}
+
+#include <iostream>
+
+int main() {
+    int n, m;
+
+    setlocale(LC_ALL, "Russian");
+
+
+    cout << "Введите количество строк (n): ";
+    cin >> n;
+    cout << "Введите количество столбцов (m): ";
+    cin >> m;
+
+
+    int matrix[20][20];
+
+
+    cout << "Введите элементы матрицы:" << endl;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            cin >> matrix[i][j];
+        }
+    }
+
+
+    cout << "Строки, удовлетворяющие условиям:" << endl;
+
+    cout << "Строки с нулями: ";
+    for (int i = 0; i < n; i++) {
+        bool all_zeros = true;
+        for (int j = 0; j < m; j++) {
+            if (matrix[i][j] != 0) {
+                all_zeros = false;
+                break;
+            }
+        }
+        if (all_zeros) {
+            cout << i << " ";
+        }
+    }
+    cout << endl;
+
+    cout << "Строки с одинаковыми элементами: ";
+    for (int i = 0; i < n; i++) {
+        bool all_same = true;
+        for (int j = 1; j < m; j++) {
+            if (matrix[i][j] != matrix[i][0]) {
+                all_same = false;
+                break;
+            }
+        }
+        if (all_same) {
+            cout << i << " ";
+        }
+    }
+    cout << endl;
+
+    cout << "Строки с четными элементами: ";
+    for (int i = 0; i < n; i++) {
+        bool all_even = true;
+        for (int j = 0; j < m; j++) {
+            if (matrix[i][j] % 2 != 0) {
+                all_even = false;
+                break;
+            }
+        }
+        if (all_even) {
+            cout << i << " ";
+        }
+    }
+    cout << endl;
+
+    cout << "Строки с монотонной последовательностью: ";
+    for (int i = 0; i < n; i++) {
+        bool increasing = true;
+        bool decreasing = true;
+
+        for (int j = 1; j < m; j++) {
+            if (matrix[i][j] < matrix[i][j - 1]) {
+                increasing = false;
+            }
+            if (matrix[i][j] > matrix[i][j - 1]) {
+                decreasing = false;
+            }
+        }
+
+        if (increasing || decreasing) {
+            cout << i << " ";
+        }
+    }
+    cout << endl;
+
+    return 0;
+}
