@@ -1,0 +1,153 @@
+#include <iostream>
+#include <vector>
+using namespace std;
+
+struct Node {
+    int data;
+    Node* next;
+};
+
+int MaxOfList(Node* head) {
+    if (head == nullptr) {
+        throw runtime_error("Список пуст");
+    }
+
+    int maxValue = head->data;
+    Node* currentNode = head->next;
+
+    while (currentNode != nullptr) {
+        if (currentNode->data > maxValue) {
+            maxValue = currentNode->data;
+        }
+        currentNode = currentNode->next;
+    }
+
+    return maxValue;
+}
+
+int main() {
+    Node* node1 = new Node{10, nullptr};
+    Node* node2 = new Node{20, node1};
+    Node* node3 = new Node{30, node2};
+    Node* head = node3;
+
+    try {
+        int maxElement = MaxOfList(head);
+        cout << "Максимальный элемент в списке: " << maxElement << endl;
+    } catch (const exception& e) {
+        cerr << "Ошибка: " << e.what() << endl;
+    }
+
+
+    delete node1;
+    delete node2;
+    delete node3;
+
+    return 0;
+}
+
+#include <iostream>
+#include <vector>
+using namespace std;
+
+struct Node {
+    int data;
+    Node* next;
+};
+
+int MinOfList(Node* head) {
+    if (head == nullptr) {
+        throw runtime_error("Список пуст");
+    }
+
+    int minValue = head->data;
+    Node* currentNode = head->next;
+
+    while (currentNode != nullptr) {
+        if (currentNode->data < minValue) {
+            minValue = currentNode->data;
+        }
+        currentNode = currentNode->next;
+    }
+
+    return minValue;
+}
+
+int main() {
+    Node* node1 = new Node{10, nullptr};
+    Node* node2 = new Node{20, node1};
+    Node* node3 = new Node{30, node2};
+    Node* head = node3;
+
+    try {
+        int minElement = MinOfList(head);
+        cout << "Минимальный элемент в списке: " << minElement << endl;
+    } catch (const std::exception& e) {
+        cerr << "Ошибка: " << e.what() << endl;
+    }
+
+    delete node1;
+    delete node2;
+    delete node3;
+
+    return 0;
+}
+
+#include <cstdlib>
+#include <iostream>
+
+struct Node {
+    int data;
+    struct Node *next;
+};
+
+int SumOfList(struct Node *head) {
+    int sum = 0;
+    struct Node *current = head;
+
+    while (current != NULL) {
+        sum += current->data;
+        current = current->next;
+    }
+
+    return sum;
+}
+
+
+struct Node* create_list(int arr[], int size) {
+    struct Node *head = NULL, *tail = NULL;
+
+    for (int i = 0; i < size; i++) {
+        struct Node *new_node = (struct Node *)malloc(sizeof(struct Node));
+        new_node->data = arr[i];
+        new_node->next = NULL;
+
+        if (head == NULL) {
+            head = tail = new_node;
+        } else {
+            tail->next = new_node;
+            tail = new_node;
+        }
+    }
+
+    return head;
+}
+
+int main() {
+    int array[] = {10, 20, 30, 40, 50};
+    int size = sizeof(array) / sizeof(array[0]);
+
+    struct Node *list = create_list(array, size);
+
+    int total_sum = SumOfList(list);
+    printf("Сумма всех элементов в списке: %d\n", total_sum);
+
+    struct Node *temp;
+    while (list != NULL) {
+        temp = list;
+        list = list->next;
+        free(temp);
+    }
+
+    return 0;
+}
