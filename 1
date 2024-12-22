@@ -1,0 +1,83 @@
+#include <iostream>
+#include <ctime>
+#include <cstdlib>
+using namespace std;
+
+void fillArrayWithRandomNumbers(int* array, int size) {
+    srand(static_cast<unsigned>(time(nullptr)));
+
+    for (int i = 0; i < size; ++i) {
+        array[i] = rand() % 10; 
+    }
+}
+
+int main() {
+    const int SIZE = 10;
+    int* dynamicArray = new int[SIZE];
+
+    fillArrayWithRandomNumbers(dynamicArray, SIZE);
+
+    cout << "Случайные числа:" << endl;
+    for (int i = 0; i < SIZE; ++i) {
+        cout << dynamicArray[i] << " ";
+    }
+    cout << endl;
+
+    delete[] dynamicArray;
+
+    return 0;
+}
+
+#include <iostream>
+#include <cctype>
+using namespace std;
+
+int countWords(const char* str) {
+    bool isWord = false;
+    int wordCount = 0;
+
+    while (*str) {
+        if (!isWord && isalnum(*str)) {
+            isWord = true;
+            wordCount++;
+        }
+        else if (isWord && !isalnum(*str)) {
+            isWord = false;
+        }
+        str++;
+    }
+
+    return wordCount;
+}
+
+int main() {
+    const char* sentence = "Привет, мир! Это пример строки.";
+    int words = countWords(sentence);
+    cout << "Количество слов в строке: " << words << endl;
+    return 0;
+}
+
+#include <iostream>
+using namespace std;
+
+double calculateAverage(int* array, int size) {
+    double sum = 0.0;
+
+    for (int i = 0; i < size; ++i) {
+        sum += array[i];
+    }
+
+    return sum / size;
+}
+
+int main() {
+    const int SIZE = 5;
+    int* dynamicArray = new int[SIZE]{1, 2, 3, 4, 5};
+
+    double average = calculateAverage(dynamicArray, SIZE);
+    cout << "Среднее арифметическое: " << average << endl;
+
+    delete[] dynamicArray;
+
+    return 0;
+}
