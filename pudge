@@ -1,0 +1,145 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+string atbashCipher(string input) {
+    string output;
+    for (int i = 0; i < input.length(); i++) {
+        char ch = input[i];
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) { 
+            char offset = (ch >= 'a' && ch <= 'z') ? 'a' : 'A'; 
+            output += (char)(offset + ('z' - ch)); 
+        } else {
+            output += ch; 
+        }
+    }
+    return output;
+}
+
+int main() {
+    string text;
+    cout << "Введите текст: ";
+    cin >> text; 
+    string encrypted = atbashCipher(text);
+    cout << "Зашифрованный текст: " << encrypted << endl;
+    return 0;
+}
+
+// Задание 2
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+string lettersToNumbers(string input) {
+    string output;
+
+    for (int i = 0; i < input.length(); i++) {
+        char ch = input[i];
+        
+        if (ch >= 'A' && ch <= 'Z') { 
+            output += (ch - 'A' + 1) + '0'; 
+            output += " "; 
+        } else if (ch >= 'a' && ch <= 'z') {
+            output += (ch - 'a' + 1) + '0'; 
+            output += " "; 
+        }
+    }
+
+    return output;
+}
+
+int main() {
+    string text;
+    cout << "Введите слово: ";
+    cin >> text;
+
+    string result = lettersToNumbers(text);
+    cout << "Результат: " << result << endl;
+
+    return 0;
+}
+
+// Задание 3
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+string removeDuplicatesIter(string str) {
+  string result = "";
+  for (char c : str) {
+    size_t found = result.find(c);
+    if (found == string::npos) {
+      result += c;
+    }
+  }
+  return result;
+}
+
+int main() {
+  string str1 = "yo";
+  string str2 = "hype";
+  string str3 = "";
+
+  cout << "Оригинальная строка: " << str1 << ", Результат: " << removeDuplicatesIter(str1) << endl;
+  cout << "Оригинальная строка: " << str2 << ", Результат: " << removeDuplicatesIter(str2) << endl;
+  cout << "Оригинальная строка: " << str3 << ", Результат: " << removeDuplicatesIter(str3) << endl;
+
+  return 0;
+}
+
+// Задание 4
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+bool is_alpha_numeric(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+}
+
+char to_lower(char c) {
+  if (c >= 'A' && c <= 'Z') {
+    return c + ('a' - 'A');
+  }
+  return c;
+}
+
+bool isPalindrome(const string& str) {
+  if (str.empty()) return true;
+
+  size_t left = 0;
+  size_t right = str.length() - 1;
+
+  while (left < right) {
+    while (left < right && !is_alpha_numeric(str[left]) {
+      left++;
+    }
+    while (left < right && !is_alpha_numeric(str[right]) {
+      right--;
+    }
+
+    if (to_lower(str[left]) != to_lower(str[right])) {
+      return false;
+    }
+    left++;
+    right--;
+  }
+  return true;
+}
+
+int main() {
+  string str1 = "messi";
+  string str2 = "ronaldo";
+  string str3 = "dota2";
+  string str4 = "";
+
+  cout << "\"" << str1 << "\" полином: " << isPalindrome(str1) << endl; 
+  cout << "\"" << str2 << "\" полином: " << isPalindrome(str2) << endl; 
+  cout << "\"" << str3 << "\" полином: " << isPalindrome(str3) << endl; 
+  cout << "\"" << str4 << "\" полином: " << isPalindrome(str4) << endl;
+
+  return 0;
+}
