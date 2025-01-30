@@ -1,0 +1,17 @@
+string* returnTest(string& str) {
+    string* stringPtr = new string; // Создание памяти под string
+    *stringPtr = str;               // Копируем значение строки
+    return stringPtr;               // Возвращение указателя на новую строку
+}
+
+int main() {
+    string str = "test";             // Создаем строку "test"
+    string* newStr = returnTest(str); // Получаем указатель на новую строку
+    
+    cout << newStr << endl;          // Печатает адрес новой строки
+    cout << *newStr << endl;         // Печатает содержимое строки
+    cout << &*newStr << endl;        // Печатает адрес строки
+    cout << *&*newStr << endl;       // Печатает содержимое строки
+    cout << &*&*newStr << endl;      // Печатает адрес строки
+    cout << *&*&*newStr << endl;     // Печатает содержимое строки
+}
