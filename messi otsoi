@@ -1,0 +1,49 @@
+#include <iostream>
+#include <vector>
+#include <random>
+#include <ctime>
+
+struct Figure {
+    char id;
+    int field[4][4]; // Поле 4x4 достаточно для представления любой фигуры
+};
+
+const Figure FIGURES[] = {
+    {'I', {{0, 0, 0, 0}, {1, 1, 1, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'J', {{1, 0, 0, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'L', {{0, 0, 1, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'O', {{1, 1, 0, 0}, {1, 1, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'S', {{0, 1, 1, 0}, {1, 1, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'T', {{0, 1, 0, 0}, {1, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}},
+    {'Z', {{1, 1, 0, 0}, {0, 1, 1, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}}
+};
+
+std::vector<Figure> generateRandomFigures(size_t count) {
+    std::mt19937 rng(static_cast<unsigned>(time(0)));
+    std::uniform_int_distribution<int> dist(0, 6);
+
+    std::vector<Figure> figures(count);
+    for (size_t i = 0; i < count; ++i) {
+        int index = dist(rng);
+        figures[i] = FIGURES[index];
+    }
+    return figures;
+}
+
+int main() {
+    size_t num_figures = 10;
+    auto random_figures = generateRandomFigures(num_figures);
+
+    for (auto figure : random_figures) {
+        std::cout << "ID: " << figure.id << '\n';
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                std::cout << figure.field[i][j] << ' ';
+            }
+            std::cout << '\n';
+        }
+        std::cout << "----------\n";
+    }
+
+    return 0;
+}
