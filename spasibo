@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+#include <limits>
+
+using namespace std;
+
+// Функция для нахождения седловой точки
+vector<pair<int, int>> findSaddlePoints(int** matrix, int rows, int cols) {
+    vector<pair<int, int>> saddlePoints;
+
+    // Перебираем каждую строку
+    for (int i = 0; i < rows; ++i) {
+        int minRowValue = numeric_limits<int>::max();
+        int minColIndex = -1;
+        
+        // Находим минимальный элемент в текущей строке
+        for (int j = 0; j < cols; ++j) {
+            if (matrix[i][j] < minRowValue) {
+                minRowValue = matrix[i][j];
+                minColIndex = j;
+            }
+        }
+
+        bool isMaxInColumn = true;
+
+        // Проверяем, является ли этот элемент максимальным в соответствующем столбце
+        for (int k = 0; k < rows; ++k) {
+            if (matrix[k][minColIndex] > minRowValue) {
+                isMaxInColumn = false;
+                break;
+            }
+        }
+
+        // Если элемент является седловой точкой, добавляем его координаты в результат
+        if (isMaxInColumn) {
+            saddlePoints.push_back({i, minColIndex});
+        }
+    }
+
+    return saddlePoints;
+}
+
+// Пример использования
+int main() {
+    int rows = 3;
+    int cols = 4;
+
+    // Выделение памяти под матрицу
+    int** matrix = (int**)malloc(rows * sizeof(int*));
+    for (int i = 0; i < rows; ++i) {
+        matrix[i] = (int*)malloc(cols * sizeof(int));
+    }
+
+    // Инициализация матрицы
+    int values[] = {3, 1, 7, 2,
+                    2, 9, 5, 1,
+                    4, 3, 2, 1};
+    int idx = 0;
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            matrix[i][j] = values[idx++];
+        }
+    }
+
+    // Поиск седловых точек
+    vector<pair<int, int>> saddlePoints = findSaddlePoints(matrix, rows, cols);
+
+    // Вывод результата
+    if (!saddlePoints.empty()) {
+        cout << "Седловые точки:\n";
+        for (const auto& point : saddlePoints) {
+            cout << "(" << point.first + 1 << ", " << point.second + 1 << ") -> "
+                 << matrix[point.first][point.second] << endl;
+        }
+    } else {
+        cout << "Седловых точек нет." << endl;
+    }
+
+    // Освобождение памяти
+    for (int i = 0; i < rows; ++i) {
+        free(matrix[i]);
+    }
+    free(matrix);
+
+    return 0;
+}
