@@ -1,0 +1,47 @@
+#include <iostream>
+#include <cstdlib> // для malloc и free
+
+using namespace std;
+
+// Функция для вычисления суммы элементов матрицы
+int sumMatrixElements(int** matrix, int rows, int cols) {
+    int sum = 0;
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            sum += matrix[i][j];
+        }
+    }
+    return sum;
+}
+
+// Пример использования
+int main() {
+    int rows = 3;
+    int cols = 4;
+
+    // Выделение памяти под матрицу
+    int** matrix = (int**)malloc(rows * sizeof(int*));
+    for (int i = 0; i < rows; ++i) {
+        matrix[i] = (int*)malloc(cols * sizeof(int));
+    }
+
+    // Инициализация матрицы
+    int value = 1;
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            matrix[i][j] = value++;
+        }
+    }
+
+    // Вычисление суммы элементов матрицы
+    int totalSum = sumMatrixElements(matrix, rows, cols);
+    cout << "Сумма элементов матрицы: " << totalSum << endl;
+
+    // Освобождение памяти
+    for (int i = 0; i < rows; ++i) {
+        free(matrix[i]);
+    }
+    free(matrix);
+
+    return 0;
+}
