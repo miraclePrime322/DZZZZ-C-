@@ -1,0 +1,99 @@
+#include <iostream>
+using namespace std;
+
+class Product {
+protected:
+    int id;
+    int price;
+
+public:
+    Product(int id, int price) : id(id), price(price) {}
+
+    virtual void print() const = 0;
+};
+
+class Socks : public Product {
+private:
+    int size;
+
+public:
+    Socks(int id, int price, int size) : Product(id, price), size(size) {}
+
+    void print() const override {
+        cout << "Socks: ID=" << id << ", Price=" << price << ", Size=" << size << endl;
+    }
+
+    friend void buy(Socks* socks);
+};
+
+class Shoes : public Product {
+private:
+    int size;
+    int heelHeight;
+
+public:
+    Shoes(int id, int price, int size, int heelHeight) : Product(id, price), size(size), heelHeight(heelHeight) {}
+
+    void print() const override {
+        cout << "Shoes: ID=" << id << ", Price=" << price << ", Size=" << size << ", Heel Height=" << heelHeight << endl;
+    }
+
+    friend void buy(Shoes* shoes);
+};
+
+class Accessory : public Product {
+private:
+    int quantity;
+
+public:
+    Accessory(int id, int price, int quantity) : Product(id, price), quantity(quantity) {}
+
+    void print() const override {
+        cout << "Accessory: ID=" << id << ", Price=" << price << ", Quantity=" << quantity << endl;
+    }
+
+    friend void buy(Accessory* accessory);
+};
+
+void buy(Socks* socks) {
+    if (socks != nullptr) {
+        cout << "socks: ID=" << socks->id << ", Price=" << socks->price << ", Size=" << socks->size << endl;
+    }
+    else {
+        cout << "Error: No socks to buy!" << endl;
+    }
+}
+
+void buy(Shoes* shoes) {
+    if (shoes != nullptr) {
+        cout << "shoes: ID=" << shoes->id << ", Price=" << shoes->price << ", Size=" << shoes->size << ", Heel Height=" << shoes->heelHeight << endl;
+    }
+    else {
+        cout << "Error: No shoes to buy!" << endl;
+    }
+}
+
+void buy(Accessory* accessory) {
+    if (accessory != nullptr) {
+        cout << "accessory: ID=" << accessory->id << ", Price=" << accessory->price << ", Quantity=" << accessory->quantity << endl;
+    }
+    else {
+        cout << "Error:No buy!" << endl;
+    }
+}
+
+int main() {
+    Socks socks(1, 500, 36);
+    Shoes shoes(2, 4000, 37, 8);
+    Accessory accessory(3, 1500, 10);
+
+    socks.print();
+    shoes.print();
+    accessory.print();
+
+    buy(&socks);
+    buy(&shoes);
+    buy(&accessory);
+
+    return 0;
+}
