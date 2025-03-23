@@ -1,0 +1,103 @@
+#include <iostream>
+using namespace std;
+
+class Distance {
+private:
+    int kilometers;
+    int meters;
+
+    void normalize() {
+        if (meters >= 1000) {
+            kilometers += meters / 1000;
+            meters = meters % 1000;
+        }
+    }
+
+public:
+    Distance(int km = 0, int m = 0) : kilometers(km), meters(m) {
+        normalize();
+    }
+
+    // Перегрузка оператора сложения
+    Distance operator+(const Distance& other) const {
+        int totalKm = kilometers + other.kilometers;
+        int totalM = meters + other.meters;
+        return Distance(totalKm, totalM);
+    }
+
+    // Перегрузка оператора вычитания
+    Distance operator-(const Distance& other) const {
+        int totalKm = kilometers - other.kilometers;
+        int totalM = meters - other.meters;
+        if (totalM < 0) {
+            totalKm -= 1;
+            totalM += 1000;
+        }
+        return Distance(totalKm, totalM);
+    }
+
+    // Перегрузка оператора умножения на число
+    Distance operator*(int multiplier) const {
+        int totalKm = kilometers * multiplier;
+        int totalM = meters * multiplier;
+        return Distance(totalKm, totalM);
+    }
+
+    // Перегрузка оператора деления на число
+    Distance operator/(int divisor) const {
+        int totalKm = kilometers / divisor;
+        int totalM = meters / divisor;
+        return Distance(totalKm, totalM);
+    }
+
+    // Перегрузка оператора сравнения ==
+    bool operator==(const Distance& other) const {
+        return kilometers == other.kilometers && meters == other.meters;
+    }
+
+    // Перегрузка оператора сравнения !=
+    bool operator!=(const Distance& other) const {
+        return !(*this == other);
+    }
+
+    // Перегрузка оператора вывода <<
+    friend ostream& operator<<(ostream& os, const Distance& distance) {
+        os << distance.kilometers << " км " << distance.meters << " м";
+        return os;
+    }
+
+    // Перегрузка оператора ввода >>
+    friend istream& operator>>(istream& is, Distance& distance) {
+        is >> distance.kilometers >> distance.meters;
+        distance.normalize();
+        return is;
+    }
+};
+
+int main() {
+    Distance d1(2, 500);
+    Distance d2(1, 600);
+
+    Distance sum = d1 + d2;
+    Distance diff = d1 - d2;
+    Distance mult = d1 * 2;
+    Distance div = d1 / 2;
+
+    cout << "Сумма: " << sum << endl;
+    cout << "Разность: " << diff << endl;
+    cout << "Умножение: " << mult << endl;
+    cout << "Деление: " << div << endl;
+
+    if (d1 == d2) {
+        cout << "Расстояния равны" << endl;
+    } else {
+        cout << "Расстояния не равны" << endl;
+    }
+
+    Distance d3;
+    cout << "Введите расстояние в формате (километры метры): ";
+    cin >> d3;
+    cout << "Вы ввели: " << d3 << endl;
+
+    return 0;
+}
