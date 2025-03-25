@@ -1,0 +1,190 @@
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <string>
+#include <algorithm>
+#include <stdexcept>
+
+using namespace std;
+
+// Базовый класс умного устройства
+class SmartDevice {
+protected:
+    string name;
+    bool isOn;
+
+public:
+    SmartDevice(const string& deviceName) : name(deviceName), isOn(false) {}
+    virtual ~SmartDevice() {}
+
+    // Выполнить команду (виртуальный метод)
+    virtual void executeCommand(const string& command) {
+        if (command == "включить") {
+            isOn = true;
+            cout << name << ": Включено" << endl;
+        }
+        else if (command == "выключить") {
+            isOn = false;
+            cout << name << ": Выключено" << endl;
+        }
+        else {
+            throw invalid_argument("Неизвестная команда: " + command);
+        }
+    }
+
+    // Получить текущее состояние
+    virtual string getStatus() const {
+        return name + ": " + (isOn ? "Включено" : "Выключено");
+    }
+};
+
+// Класс умной лампы
+class SmartLight : public SmartDevice {
+    int brightness; // Яркость от 0 до 100
+
+public:
+    SmartLight(const string& name) : SmartDevice(name), brightness(0) {}
+
+    void executeCommand(const string& command) override {
+        if (command == "включить") {
+            isOn = true;
+            brightness = 50; // Устанавливаем среднюю яркость при включении
+            cout << name << ": Лампа включена, яркость 50%" << endl;
+        }
+        else if (command == "выключить") {
+            isOn = false;
+            brightness = 0;
+            cout << name << ": Лампа выключена" << endl;
+        }
+        else if (command.find("яркость") == 0) {
+            if (!isOn) {
+                cout << name << ": Сначала включите лампу" << endl;
+                return;
+            }
+            
+            try {
+                size_t pos;
+                int value = stoi(command.substr(8), &pos);
+                if (value < 0 || value > 100) {
+                    throw out_of_range("Недопустимое значение");
+                }
+                brightness = value;
+                cout << name << ": Яркость установлена на " << brightness << "%" << endl;
+            }
+            catch (...) {
+                throw invalid_argument("Неверная команда яркости. Используйте: 'яркость XX'");
+            }
+        }
+        else {
+            SmartDevice::executeCommand(command);
+        }
+    }
+
+    string getStatus() const override {
+        return SmartDevice::getStatus() + ", яркость " + to_string(brightness) + "%";
+    }
+};
+
+// Класс умного термостата
+class SmartThermostat : public SmartDevice {
+    int temperature; // Текущая температура
+
+public:
+    SmartThermostat(const string& name) : SmartDevice(name), temperature(20) {}
+
+    void executeCommand(const string& command) override {
+        if (command == "включить") {
+            isOn = true;
+            cout << name << ": Термостат включен, температура " << temperature << "°C" << endl;
+        }
+        else if (command == "выключить") {
+            isOn = false;
+            cout << name << ": Термостат выключен" << endl;
+        }
+        else if (command.find("температура") == 0) {
+            if (!isOn) {
+                cout << name << ": Сначала включите термостат" << endl;
+                return;
+            }
+            
+            try {
+                size_t pos;
+                int value = stoi(command.substr(11), &pos);
+                if (value < 10 || value > 30) {
+                    throw out_of_range("Недопустимое значение (10-30°C)");
+                }
+                temperature = value;
+                cout << name << ": Температура установлена на " << temperature << "°C" << endl;
+            }
+            catch (...) {
+                throw invalid_argument("Неверная команда температуры. Используйте: 'температура XX'");
+            }
+        }
+        else {
+            SmartDevice::executeCommand(command);
+        }
+    }
+
+    string getStatus() const override {
+        return SmartDevice::getStatus() + ", температура " + to_string(temperature) + "°C";
+    }
+};
+
+// Класс умного дома
+class SmartHome {
+    vector<unique_ptr<SmartDevice>> devices;
+
+public:
+    // Добавить устройство
+    void addDevice(unique_ptr<SmartDevice> device) {
+        devices.push_back(move(device));
+    }
+
+    // Выполнить команду на всех устройствах
+    void executeCommand(const string& command) {
+        cout << "\nВыполняю команду: '" << command << "'" << endl;
+        for (auto& device : devices) {
+            try {
+                device->executeCommand(command);
+            }
+            catch (const exception& e) {
+                cerr << "Ошибка в устройстве " << device->getStatus() << ": " << e.what() << endl;
+            }
+        }
+    }
+
+    // Показать статус всех устройств
+    void showStatus() const {
+        cout << "\n=== Статус устройств ===" << endl;
+        for (const auto& device : devices) {
+            cout << device->getStatus() << endl;
+        }
+    }
+};
+
+int main() {
+    SmartHome myHome;
+
+    // Создаем и добавляем устройства
+    myHome.addDevice(make_unique<SmartLight>("Гостиная лампа"));
+    myHome.addDevice(make_unique<SmartThermostat>("Кухонный термостат"));
+    myHome.addDevice(make_unique<SmartLight>("Спальня лампа"));
+    myHome.addDevice(make_unique<SmartThermostat>("Зал термостат"));
+
+    // Демонстрация работы
+    myHome.showStatus();
+
+    myHome.executeCommand("включить");
+    myHome.executeCommand("яркость 75");
+    myHome.executeCommand("температура 22");
+    myHome.executeCommand("выключить");
+
+    myHome.showStatus();
+
+    // Тест обработки ошибок
+    myHome.executeCommand("неизвестная команда");
+    myHome.executeCommand("яркость 150");
+    myHome.executeCommand("температура 50");
+
+    return 0;
+}
