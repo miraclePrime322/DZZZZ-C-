@@ -1,0 +1,122 @@
+#include <iostream>
+#include <string>
+#include <vector>
+using namespace std;
+
+// Базовый класс Employee
+class Employee {
+protected:
+    string name;
+    double salary;
+
+public:
+    Employee(const string& name, double salary) : name(name), salary(salary) {}
+    
+    virtual ~Employee() {}
+    
+    virtual double calculateBonus() const {
+        return 0.0; // Базовый бонус (по умолчанию 0)
+    }
+    
+    virtual void displayInfo() const {
+        cout << "Имя: " << name << ", Зарплата: " << salary;
+    }
+    
+    string getName() const { return name; }
+    double getSalary() const { return salary; }
+};
+
+// Класс Manager
+class Manager : public Employee {
+private:
+    int numberOfSubordinates;
+
+public:
+    Manager(const string& name, double salary, int subs) 
+        : Employee(name, salary), numberOfSubordinates(subs) {}
+    
+    double calculateBonus() const override {
+        // Бонус 15% от зарплаты + 2% за каждого подчиненного
+        return salary * 0.15 + salary * 0.02 * numberOfSubordinates;
+    }
+    
+    void displayInfo() const override {
+        Employee::displayInfo();
+        cout << ", Должность: Менеджер, Подчиненные: " << numberOfSubordinates 
+             << ", Бонус: " << calculateBonus() << endl;
+    }
+};
+
+// Класс Developer
+class Developer : public Employee {
+private:
+    int numberOfProjects;
+
+public:
+    Developer(const string& name, double salary, int projects) 
+        : Employee(name, salary), numberOfProjects(projects) {}
+    
+    double calculateBonus() const override {
+        // Бонус 10% от зарплаты + 5% за каждый проект
+        return salary * 0.10 + salary * 0.05 * numberOfProjects;
+    }
+    
+    void displayInfo() const override {
+        Employee::displayInfo();
+        cout << ", Должность: Разработчик, Проекты: " << numberOfProjects 
+             << ", Бонус: " << calculateBonus() << endl;
+    }
+};
+
+// Класс Intern
+class Intern : public Employee {
+private:
+    int internshipDuration; // в месяцах
+
+public:
+    Intern(const string& name, double salary, int duration) 
+        : Employee(name, salary), internshipDuration(duration) {}
+    
+    double calculateBonus() const override {
+        // Фиксированный бонус 500, если стажировка > 3 месяцев
+        return (internshipDuration > 3) ? 500.0 : 0.0;
+    }
+    
+    void displayInfo() const override {
+        Employee::displayInfo();
+        cout << ", Должность: Стажер, Длительность: " << internshipDuration 
+             << " мес., Бонус: " << calculateBonus() << endl;
+    }
+};
+
+// Функция для демонстрации полиморфизма
+void printEmployeeInfo(const Employee& emp) {
+    emp.displayInfo();
+}
+
+int main() {
+    // Создаем сотрудников разных типов
+    Manager manager("Иван Петров", 100000, 5);
+    Developer developer("Алексей Сидоров", 80000, 3);
+    Intern intern("Мария Иванова", 30000, 4);
+    
+    // Помещаем всех сотрудников в один вектор
+    vector<Employee*> employees;
+    employees.push_back(&manager);
+    employees.push_back(&developer);
+    employees.push_back(&intern);
+    
+    // Выводим информацию о каждом сотруднике
+    cout << "=== Информация о сотрудниках ===" << endl;
+    for (const auto& emp : employees) {
+        printEmployeeInfo(*emp);
+    }
+    
+    // Выводим только бонусы
+    cout << "\n=== Бонусы сотрудников ===" << endl;
+    for (const auto& emp : employees) {
+        cout << emp->getName() << ": " << emp->calculateBonus() << endl;
+    }
+    
+    return 0;
+}
