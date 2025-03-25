@@ -1,0 +1,162 @@
+#include <iostream>
+using namespace std;
+
+template <typename T>
+class LinkedList {
+public:
+    class Node {
+    public:
+        T data;
+        Node* next;
+
+        Node() : data(0), next(nullptr) {}
+        Node(T value) : data(value), next(nullptr) {}
+    };
+
+    Node* Head;
+
+    LinkedList() : Head(nullptr) {}
+    LinkedList(Node* head) : Head(head) {}
+    ~LinkedList() { clear(); }
+
+    void push(T value) {
+        if (Head == nullptr) {
+            Head = new Node(value);
+        }
+        else {
+            Node* current = Head;
+            while (current->next != nullptr) {
+                current = current->next;
+            }
+            current->next = new Node(value);
+        }
+    }
+
+    void print() {
+        if (Head == nullptr) {
+            cout << "Список пустой";
+        }
+        else {
+            Node* current = Head;
+            while (current != nullptr) {
+                cout << current->data << " ";
+                current = current->next;
+            }
+            cout << endl;
+        }
+    }
+
+    T get(int index) {
+        Node* current = Head;
+        while (current != nullptr && index > 0) {
+            current = current->next;
+            index--;
+        }
+        if (current == nullptr) throw out_of_range("Индекс за пределами списка");
+        return current->data;
+    }
+
+    void remove(T data) {
+        if (Head == nullptr) return;
+        
+        if (Head->data == data) {
+            Node* temp = Head;
+            Head = Head->next;
+            delete temp;
+            return;
+        }
+
+        Node* current = Head;
+        while (current->next != nullptr && current->next->data != data) {
+            current = current->next;
+        }
+        
+        if (current->next != nullptr) {
+            Node* temp = current->next;
+            current->next = current->next->next;
+            delete temp;
+        }
+    }
+
+    void removeAt(int index) {
+        if (Head == nullptr) return;
+        
+        if (index == 0) {
+            Node* temp = Head;
+            Head = Head->next;
+            delete temp;
+            return;
+        }
+
+        Node* current = Head;
+        while (current->next != nullptr && index > 1) {
+            current = current->next;
+            index--;
+        }
+        
+        if (current->next != nullptr) {
+            Node* temp = current->next;
+            current->next = current->next->next;
+            delete temp;
+        }
+    }
+
+    LinkedList<T> subList(int indexStart, int indexEnd) {
+        if (indexStart < 0 || indexStart > indexEnd) 
+            throw invalid_argument("Некорректные индексы");
+
+        LinkedList<T> result;
+        Node* current = Head;
+        int currentIndex = 0;
+        
+        // Пропускаем элементы до начального индекса
+        while (current != nullptr && currentIndex < indexStart) {
+            current = current->next;
+            currentIndex++;
+        }
+        
+        // Добавляем элементы в подсписок
+        while (current != nullptr && currentIndex <= indexEnd) {
+            result.push(current->data);
+            current = current->next;
+            currentIndex++;
+        }
+        
+        return result;
+    }
+
+    void clear() {
+        while (Head != nullptr) {
+            Node* temp = Head;
+            Head = Head->next;
+            delete temp;
+        }
+    }
+};
+
+int main() {
+    setlocale(LC_ALL, "rus");
+    LinkedList<string> list;
+    list.push("10.5asdd");
+    list.push("15.5asdasd");
+    list.push("20.5adsad");
+    list.push("25.5asdasd");
+    list.push("30.5asdasd");
+    
+    cout << "Исходный список: ";
+    list.print();
+    
+    cout << "Подсписок (1-3): ";
+    LinkedList<string> sub = list.subList(1, 3);
+    sub.print();
+    
+    cout << "Удаление элемента по индексу 2: ";
+    list.removeAt(2);
+    list.print();
+    
+    cout << "Очистка списка: ";
+    list.clear();
+    list.print();
+
+    return 0;
+}
