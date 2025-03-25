@@ -1,0 +1,140 @@
+#include <iostream>
+
+using namespace std;
+
+// 1. Система освещения
+class LightingSystem {
+protected:
+    const char* lights[4] = {"Гостиная", "Кухня", "Спальня", "Ванная"};
+    bool mainLightState;
+public:
+    LightingSystem() : mainLightState(false) {}
+
+    void toggleMainLight() {
+        mainLightState = !mainLightState;
+        cout << "Основное освещение: " << (mainLightState ? "ВКЛ" : "ВЫКЛ") << endl;
+    }
+
+    void printLights() const {
+        cout << "Система освещения: ";
+        for (int i = 0; i < 4; i++) {
+            cout << lights[i] << " ";
+        }
+        cout << endl;
+    }
+};
+
+// 2. Система безопасности
+class SecuritySystem {
+protected:
+    bool alarmEnabled;
+    const char* sensors[4] = {"Дверь", "Окно гостиной", "Окно спальни", "Датчик движения"};
+public:
+    SecuritySystem() : alarmEnabled(false) {}
+
+    void toggleAlarm() {
+        alarmEnabled = !alarmEnabled;
+        cout << "Сигнализация: " << (alarmEnabled ? "АКТИВИРОВАНА" : "ОТКЛЮЧЕНА") << endl;
+    }
+
+    void printSensors() const {
+        cout << "Датчики безопасности: ";
+        for (int i = 0; i < 4; i++) {
+            cout << sensors[i] << " ";
+        }
+        cout << endl;
+    }
+};
+
+// 3. Климат-контроль
+class ClimateControl {
+protected:
+    double temperature;
+    bool acEnabled;
+public:
+    ClimateControl() : temperature(22.0), acEnabled(false) {}
+
+    void setTemperature(double temp) {
+        temperature = temp;
+        cout << "Температура установлена на: " << temperature << "°C" << endl;
+    }
+
+    void toggleAC() {
+        acEnabled = !acEnabled;
+        cout << "Кондиционер: " << (acEnabled ? "ВКЛ" : "ВЫКЛ") << endl;
+    }
+
+    void printClimate() const {
+        cout << "Климат-контроль: " << temperature << "°C, "
+             << "AC: " << (acEnabled ? "ON" : "OFF") << endl;
+    }
+};
+
+// 4. Развлекательная система
+class EntertainmentSystem {
+protected:
+    const char* devices[3] = {"Телевизор", "Аудиосистема", "Игровая приставка"};
+    bool tvOn;
+public:
+    EntertainmentSystem() : tvOn(false) {}
+
+    void toggleTV() {
+        tvOn = !tvOn;
+        cout << "Телевизор: " << (tvOn ? "ВКЛ" : "ВЫКЛ") << endl;
+    }
+
+    void printDevices() const {
+        cout << "Развлекательные устройства: ";
+        for (int i = 0; i < 3; i++) {
+            cout << devices[i] << " ";
+        }
+        cout << endl;
+    }
+};
+
+// Итоговый класс Умного дома
+class SmartHome : public LightingSystem, public SecuritySystem, 
+                 public ClimateControl, public EntertainmentSystem {
+private:
+    const char* name;
+public:
+    SmartHome(const char* homeName) : name(homeName) {}
+
+    // Метод print для отображения всей информации
+    void print() const {
+        cout << "\n=== Состояние умного дома '";
+        const char* p = name;
+        while (*p) { cout << *p++; }  // Вывод имени посимвольно
+        cout << "' ===" << endl;
+        
+        cout << "1. ";
+        printLights();
+        cout << "2. ";
+        printSensors();
+        cout << "3. ";
+        printClimate();
+        cout << "4. ";
+        printDevices();
+        cout << "==============================\n" << endl;
+    }
+
+    // Демонстрационный метод
+    void demo() {
+        toggleMainLight();
+        toggleAlarm();
+        setTemperature(23.5);
+        toggleTV();
+    }
+};
+
+int main() {
+    SmartHome myHome("Уютный дом");
+    
+    cout << "Демонстрация работы умного дома:\n";
+    myHome.demo();
+    
+    cout << "\nТекущее состояние дома:";
+    myHome.print();
+
+    return 0;
+}
