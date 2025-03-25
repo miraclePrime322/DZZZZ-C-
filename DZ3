@@ -1,0 +1,89 @@
+class Frustum : public Cone {
+private:
+    double topRadius;  // Радиус верхнего основания
+
+public:
+    // Конструкторы
+    Frustum() : Cone(), topRadius(0) {}  // По умолчанию
+    
+    Frustum(double x, double y, double z, double r, double tr, double h)
+        : Cone(x, y, z, r, h), topRadius(tr) {}
+
+    // Методы доступа
+    double getTopRadius() const { return topRadius; }
+
+    // Переопределение методов
+    double area() const override {
+        double l = sqrt(pow(radius - topRadius, 2) + height * height;
+        return M_PI * (radius * radius + topRadius * topRadius + (radius + topRadius) * l);
+    }
+
+    double volume() const override {
+        return (1.0/3.0) * M_PI * height * 
+               (radius * radius + topRadius * topRadius + radius * topRadius);
+    }
+
+    // Методы сравнения
+    bool operator==(const Frustum& f) const {
+        return volume() == f.volume();
+    }
+
+    bool operator<(const Frustum& f) const {
+        return volume() < f.volume();
+    }
+
+    // Перегрузка операторов ввода/вывода
+    friend istream& operator>>(istream& is, Frustum& f) {
+        Cone& c = f;  // Используем оператор Cone
+        is >> c;
+        cout << "Введите радиус верхнего основания: ";
+        is >> f.topRadius;
+        return is;
+    }
+
+    friend ostream& operator<<(ostream& os, const Frustum& f) {
+        os << "Усеченный конус: центр(" << f.getX() << "," << f.getY() << "," << f.getZ() << ") "
+           << "r1=" << f.getRadius() << " r2=" << f.topRadius << " h=" << f.getHeight() << endl
+           << "Площадь: " << f.area() << " Объем: " << f.volume() << endl;
+        return os;
+    }
+};
+
+int main() {
+    // Базовый конус
+    Cone base(0, 0, 0, 5.0, 10.0);
+
+    // Создание усеченных конусов
+    Frustum f1;  // По умолчанию
+    Frustum f2(1.0, 1.0, 0.0, 4.0, 2.0, 5.0);  // С параметрами
+
+    // Ввод данных
+    cout << "Введите параметры усеченного конуса:" << endl;
+    cin >> f1;
+
+    // Вывод информации
+    cout << "\nСозданные усеченные конусы:" << endl;
+    cout << f1 << f2;
+
+    // Сравнение конусов
+    if (f1 < f2) {
+        cout << "Первый конус меньше второго" << endl;
+    } else if (f1 == f2) {
+        cout << "Конусы равны" << endl;
+    } else {
+        cout << "Первый конус больше второго" << endl;
+    }
+
+    // Создание нескольких усеченных конусов с общим базовым
+    vector<Frustum> cones;
+    cones.emplace_back(0, 0, 0, base.getRadius(), 3.0, base.getHeight());
+    cones.emplace_back(0, 0, 0, base.getRadius(), 1.0, base.getHeight());
+    cones.emplace_back(0, 0, 0, base.getRadius(), 4.0, base.getHeight());
+
+    cout << "\nУсеченные конусы с общим основанием:" << endl;
+    for (const auto& cone : cones) {
+        cout << cone;
+    }
+
+    return 0;
+}
