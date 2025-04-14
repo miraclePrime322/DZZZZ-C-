@@ -1,0 +1,66 @@
+using System;
+
+abstract class OrderProcessor
+{
+    public void ProcessOrder()
+    {
+        CheckProductAvailability();
+        ApplyDiscount();
+        CreateOrder();
+        NotifyCustomer();
+    }
+
+    protected virtual void CheckProductAvailability()
+    {
+        Console.WriteLine("Проверка наличия товара...");
+    }
+
+    protected abstract void ApplyDiscount();
+
+    protected abstract void CreateOrder();
+
+    protected virtual void NotifyCustomer()
+    {
+        Console.WriteLine("Уведомление клиента...");
+    }
+}
+
+class RegularOrder : OrderProcessor
+{
+    protected override void ApplyDiscount()
+    {
+        Console.WriteLine("Скидка не применяется.");
+    }
+
+    protected override void CreateOrder()
+    {
+        Console.WriteLine("Создание обычного заказа...");
+    }
+}
+
+class VipOrder : OrderProcessor
+{
+    protected override void ApplyDiscount()
+    {
+        Console.WriteLine("Применение VIP-скидки.");
+    }
+
+    protected override void CreateOrder()
+    {
+        Console.WriteLine("Создание VIP-заказа...");
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        var regularOrder = new RegularOrder();
+        regularOrder.ProcessOrder();
+
+        Console.WriteLine("\n------------------\n");
+
+        var vipOrder = new VipOrder();
+        vipOrder.ProcessOrder();
+    }
+}
