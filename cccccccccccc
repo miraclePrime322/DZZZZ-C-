@@ -1,0 +1,47 @@
+https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd
+
+Authorization: Bearer CG-4PFmAzFpD9tRs3dnUMZtaTjY
+
+  {
+  "bitcoin": {
+    "usd": 28000.12
+  }
+}
+
+using System;
+using System.Net.Http;
+using Newtonsoft.Json.Linq;
+
+namespace CryptoPriceFetcher
+{
+    class Program
+    {
+        static async Task Main(string[] args)
+        {
+            const string coinId = "bitcoin";
+            const string currency = "usd";
+
+            string requestUri = $"https://api.coingecko.com/api/v3/simple/price?ids={coinId}&vs_currencies={currency}";
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                // Отсылаем запрос
+                HttpResponseMessage response = await httpClient.GetAsync(requestUri);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    string jsonContent = await response.Content.ReadAsStringAsync();
+
+                    JObject data = JObject.Parse(jsonContent);
+                    JToken price = data[$"{coinId}.{currency}"];
+
+                    Console.WriteLine($"Цена {coinId.ToUpper()} в {currency.ToUpper()}: {price}");
+                }
+                else
+                {
+                    Console.WriteLine("Ошибка запроса:", response.StatusCode);
+                }
+            }
+        }
+    }
+}
