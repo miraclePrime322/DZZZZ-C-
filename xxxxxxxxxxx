@@ -1,0 +1,103 @@
+using System;
+using System.IO;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+
+public class Searcher
+{
+    // Параллельный поиск слова в файлах
+    public async Task FindWordInFilesAsync(string[] files, string searchTerm)
+    {
+        await Task.WhenAll(files.Select(async fileName =>
+        {
+            await ProcessFileAsync(fileName, searchTerm);
+        }));
+    }
+
+    // Метод, выполняющий обработку файла в отдельном потоке
+    private async Task ProcessFileAsync(string fileName, string searchTerm)
+    {
+        if (!File.Exists(fileName)) return;
+
+        try
+        {
+            using (StreamReader reader = new StreamReader(fileName))
+            {
+                string content = await reader.ReadToEndAsync();
+                MatchCollection matches = Regex.Matches(content, searchTerm, RegexOptions.IgnoreCase);
+
+                if (matches.Count > 0)
+                {
+                    Console.WriteLine($"Found {searchTerm} in {fileName}: {matches.Count} times");
+                }
+            }
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"Error reading {fileName}: {ex.Message}");
+        }
+    }
+
+    // Точка входа в приложение
+    public static async Task Main(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Usage: dotnet run <word_to_find> <path_to_file_1> <path_to_file_2>...");
+            return;
+        }
+
+        string searchTerm = args[0];
+        string[] files = args.Skip(1).ToArray();
+
+        Searcher searcher = new Searcher();
+        await searcher.FindWordInFilesAsync(files, searchTerm);
+    }
+}
+
+using System;
+using System.Drawing;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+public class ImageDownloaderAndResizer
+{
+    // Метод для загрузки и ресайзинга изображений
+    public async Task DownloadAndResizeImageAsync(string imageUrl, string savePath)
+    {
+        HttpClient client = new HttpClient();
+        byte[] imageBytes = await client.GetByteArrayAsync(imageUrl);
+
+        using MemoryStream ms = new MemoryStream(imageBytes);
+        using Bitmap originalBitmap = new Bitmap(ms);
+        using Bitmap resizedBitmap = ResizeImage(originalBitmap, 64, 64);
+
+        resizedBitmap.Save(savePath);
+        Console.WriteLine($"Image downloaded and resized to {savePath}.");
+    }
+
+    // Масштабирует изображение до нужного размера
+    private static Bitmap ResizeImage(Bitmap source, int width, int height)
+    {
+        Bitmap target = new Bitmap(width, height);
+        Graphics graphics = Graphics.FromImage(target);
+        graphics.DrawImage(source, 0, 0, width, height);
+        return target;
+    }
+
+    // Главная точка входа приложения
+    public static async Task Main(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Usage: dotnet run <image_url> <save_path>");
+            return;
+        }
+
+        string imageUrl = args[0];      // URL загружаемого изображения
+        string savePath = args[1];      // Куда сохранить сжатый вариант
+
+        ImageDownloaderAndResizer downloader = new ImageDownloaderAndResizer();
+        await downloader.DownloadAndResizeImageAsync(imageUrl, savePath);
+    }
+}
