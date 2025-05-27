@@ -1,1 +1,35 @@
+using System;
+using System.IO;
 
+class WordCounter
+{
+    static void Main(string[] args)
+    {
+        string filePath = "input.txt"; // Путь к входному файлу
+        string outputFilePath = "result.txt";
+
+        try
+        {
+            // Читаем всё содержимое файла в одну строку
+            string text = File.ReadAllText(filePath);
+
+            // Разделение строки на слова по пробельным символам
+            string[] words = text.Split(new char[] {' ', '\t', '\r', '\n'}, StringSplitOptions.RemoveEmptyEntries);
+
+            // Количество слов
+            int wordCount = words.Length;
+
+            // Сохраняем результат в файл result.txt
+            using (StreamWriter writer = new StreamWriter(outputFilePath))
+            {
+                writer.WriteLine(wordCount.ToString());
+            }
+
+            Console.WriteLine($"Количество слов в файле '{filePath}' успешно посчитано и сохранено в '{outputFilePath}'.");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Возникла ошибка: {e.Message}");
+        }
+    }
+}
