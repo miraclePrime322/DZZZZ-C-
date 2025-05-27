@@ -1,0 +1,60 @@
+using System;
+using System.Threading;
+
+class Program
+{
+    private static object lockObject = new object(); // Блокировка для защиты ресурса
+    private static int[] sharedArray = { 5, 3, 8, 1, 6 }; // Исходный список
+    private static int[] previousState = null; // Храним предыдущее состояние списка
+
+    static void SortThreadMethod()
+    {
+        while (true)
+        {
+            Thread.Sleep(100); // Ждем 100 мс перед следующим выполнением
+            lock (lockObject)
+            {
+                Array.Sort(sharedArray); // Сортируем список
+            }
+        }
+    }
+
+    static void ObserverThreadMethod()
+    {
+        while (true)
+        {
+            Thread.Sleep(50); // Ожидание между проверками изменений
+            lock (lockObject)
+            {
+                // Копируем текущее состояние массива
+                int[] currentState = (int[])sharedArray.Clone();
+
+                // Сравниваем текущее состояние с предыдущим
+                if (!previousState.SequenceEqual(currentState))
+                {
+                    // Список изменился, выводим его в консоль
+                    Console.WriteLine("Список изменился:");
+                    foreach (var item in currentState)
+                        Console.Write(item + " ");
+                    Console.WriteLine();
+
+                    // Обновляем предыдущее состояние
+                    previousState = currentState;
+                }
+            }
+        }
+    }
+
+    static void Main()
+    {
+        // Запускаем потоки
+        Thread sortThread = new Thread(SortThreadMethod);
+        Thread observerThread = new Thread(ObserverThreadMethod);
+
+        sortThread.Start();
+        observerThread.Start();
+
+        // Держим основной поток открытым, пока другие работают
+        Console.ReadKey();
+    }
+}
