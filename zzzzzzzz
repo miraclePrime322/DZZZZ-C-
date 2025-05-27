@@ -1,0 +1,218 @@
+delegate bool FilterDelegate(int value); // Объявляем делегат для фильтрации значений
+
+// Общий метод фильтрации
+List<int> ApplyFilter(List<int> list, FilterDelegate filterFunc)
+{
+    return list.Where(filterFunc.Invoke).ToList(); // Применяем фильтр к коллекции
+}
+
+// Фильтр для чётных чисел
+bool IsEven(int num) => num % 2 == 0;
+
+// Фильтр для положительных чисел
+bool IsPositive(int num) => num >= 0;
+
+// Основной метод для демонстрации
+static void Task1()
+{
+    List<int> numbers = new List<int> { -3, 5, 0, 8, -1, 12, 7 };
+
+    // Получаем чётные числа
+    List<int> evenNumbers = ApplyFilter(numbers, IsEven);
+    Console.WriteLine("Четные числа:");
+    evenNumbers.ForEach(Console.WriteLine);
+
+    // Получаем положительные числа
+    List<int> positiveNumbers = ApplyFilter(numbers, IsPositive);
+    Console.WriteLine("Положительные числа:");
+    positiveNumbers.ForEach(Console.WriteLine);
+}
+
+// Анонимная функция через Func
+static void Task2()
+{
+    List<int> nums = new List<int> { 1, 2, 3, 4, 5 };
+    int addValue = 10;
+
+    // Анонимная функция
+    Func<List<int>, int, List<int>> addNumber = (list, number) =>
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            list[i] += number;
+        }
+        return list;
+    };
+
+    // Применение анонимной функции
+    List<int> updatedNums = addNumber(nums, addValue);
+    Console.WriteLine("Обновленные значения:");
+    updatedNums.ForEach(Console.WriteLine);
+}
+
+class Employee
+{
+    public string Name { get; set; }
+    public string Department { get; set; }
+    public decimal Salary { get; set; }
+}
+
+static void Task3()
+{
+    var employees = new List<Employee>()
+    {
+        new Employee { Name = "Ivan", Department = "IT", Salary = 100000m },
+        new Employee { Name = "Petr", Department = "HR", Salary = 80000m },
+        new Employee { Name = "Alexey", Department = "IT", Salary = 120000m },
+        new Employee { Name = "Mary", Department = "HR", Salary = 75000m },
+        new Employee { Name = "Darya", Department = "IT", Salary = 95000m },
+        new Employee { Name = "Sergey", Department = "Finance", Salary = 110000m }
+    };
+
+    // Топ-3 сотрудника с самыми высокими зарплатами
+    var topEmployees = employees
+        .OrderByDescending(emp => emp.Salary)
+        .Take(3)
+        .ToList();
+
+    Console.WriteLine("Топ-3 сотрудников с наивысшими зарплатами:");
+    foreach (var employee in topEmployees)
+    {
+        Console.WriteLine($"{employee.Name}, Зарплата: {employee.Salary} руб.");
+    }
+
+    // Департамент с самой высокой средней зарплатой
+    var departmentWithHighestAvgSalary = employees.GroupBy(e => e.Department)
+        .Select(group => new
+        {
+            Department = group.Key,
+            AverageSalary = group.Average(e => e.Salary)
+        })
+        .OrderByDescending(dept => dept.AverageSalary)
+        .FirstOrDefault();
+
+    Console.WriteLine(
+        $"Департамент с самой высокой средней зарплатой: {departmentWithHighestAvgSalary?.Department}, Средняя зарплата: {departmentWithHighestAvgSalary?.AverageSalary ?? 0} руб.");
+}
+Что делает этот код:
+Создали коллекцию сотрудников (employees) с именами, должностью и зарплатой.
+Используя LINQ-запросы, получили топ-3 сотрудников с максимальными зарплатами.
+Нашли департамент с максимальной средней зарплатой среди сотрудников путём группировки по департаментам и вычисления среднего показателя зарплаты внутри каждой группы.
+Итоговая реализация всех заданий вместе:
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Program
+{
+    delegate bool FilterDelegate(int value); // Объявляем делегат для фильтрации значений
+
+    // Общий метод фильтрации
+    List<int> ApplyFilter(List<int> list, FilterDelegate filterFunc)
+    {
+        return list.Where(filterFunc.Invoke).ToList(); // Применяем фильтр к коллекции
+    }
+
+    // Фильтр для чётных чисел
+    bool IsEven(int num) => num % 2 == 0;
+
+    // Фильтр для положительных чисел
+    bool IsPositive(int num) => num >= 0;
+
+    class Employee
+    {
+        public string Name { get; set; }
+        public string Department { get; set; }
+        public decimal Salary { get; set; }
+    }
+
+    static void Main()
+    {
+        // Задача №1: Демонстрация фильтров
+        Task1();
+
+        // Задача №2: Анонимная функция
+        Task2();
+
+        // Задача №3: Анализ сотрудников
+        Task3();
+    }
+
+    // Основная логика первой задачи
+    static void Task1()
+    {
+        List<int> numbers = new List<int> { -3, 5, 0, 8, -1, 12, 7 };
+
+        // Получаем чётные числа
+        List<int> evenNumbers = ApplyFilter(numbers, IsEven);
+        Console.WriteLine("Четные числа:");
+        evenNumbers.ForEach(Console.WriteLine);
+
+        // Получаем положительные числа
+        List<int> positiveNumbers = ApplyFilter(numbers, IsPositive);
+        Console.WriteLine("Положительные числа:");
+        positiveNumbers.ForEach(Console.WriteLine);
+    }
+
+    // Вторая задача: анонимная функция
+    static void Task2()
+    {
+        List<int> nums = new List<int> { 1, 2, 3, 4, 5 };
+        int addValue = 10;
+
+        // Анонимная функция
+        Func<List<int>, int, List<int>> addNumber = (list, number) =>
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                list[i] += number;
+            }
+            return list;
+        };
+
+        // Применение анонимной функции
+        List<int> updatedNums = addNumber(nums, addValue);
+        Console.WriteLine("Обновленные значения:");
+        updatedNums.ForEach(Console.WriteLine);
+    }
+
+    // Третья задача: работа с сотрудниками
+    static void Task3()
+    {
+        var employees = new List<Employee>()
+        {
+            new Employee { Name = "Ivan", Department = "IT", Salary = 100000m },
+            new Employee { Name = "Petr", Department = "HR", Salary = 80000m },
+            new Employee { Name = "Alexey", Department = "IT", Salary = 120000m },
+            new Employee { Name = "Mary", Department = "HR", Salary = 75000m },
+            new Employee { Name = "Darya", Department = "IT", Salary = 95000m },
+            new Employee { Name = "Sergey", Department = "Finance", Salary = 110000m }
+        };
+
+        // Топ-3 сотрудника с самыми высокими зарплатами
+        var topEmployees = employees
+            .OrderByDescending(emp => emp.Salary)
+            .Take(3)
+            .ToList();
+
+        Console.WriteLine("Топ-3 сотрудников с наивысшими зарплатами:");
+        foreach (var employee in topEmployees)
+        {
+            Console.WriteLine($"{employee.Name}, Зарплата: {employee.Salary} руб.");
+        }
+
+        // Департамент с самой высокой средней зарплатой
+        var departmentWithHighestAvgSalary = employees.GroupBy(e => e.Department)
+            .Select(group => new
+            {
+                Department = group.Key,
+                AverageSalary = group.Average(e => e.Salary)
+            })
+            .OrderByDescending(dept => dept.AverageSalary)
+            .FirstOrDefault();
+
+        Console.WriteLine(
+            $"Департамент с самой высокой средней зарплатой: {departmentWithHighestAvgSalary?.Department}, Средняя зарплата: {departmentWithHighestAvgSalary?.AverageSalary ?? 0} руб.");
+    }
+}
