@@ -1,0 +1,261 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Xunit;
+
+public class FileLoggerTests : IDisposable
+{
+    private readonly string _testFilePath;
+    private readonly List<string> _tempFiles;
+
+    public FileLoggerTests()
+    {
+        _testFilePath = Path.GetTempFileName();
+        _tempFiles = new List<string> { _testFilePath };
+    }
+
+    public void Dispose()
+    {
+        foreach (var file in _tempFiles)
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+    }
+
+    [Fact]
+    public void LogDebug_WritesCorrectFormat()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        string message = "Test debug message";
+
+        logger.Debug(message);
+
+        string content = File.ReadAllText(_testFilePath);
+        Assert.Contains("[Debug] Test debug message", content);
+        Assert.Contains(DateTime.Now.Year.ToString(), content);
+    }
+
+    [Fact]
+    public void LogInfo_WritesCorrectFormat()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        string message = "Test info message";
+
+        logger.Info(message);
+
+        string content = File.ReadAllText(_testFilePath);
+        Assert.Contains("[Info] Test info message", content);
+    }
+
+    [Fact]
+    public void LogWarning_WritesCorrectFormat()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        string message = "Test warning message";
+
+        logger.Warning(message);
+
+        string content = File.ReadAllText(_testFilePath);
+        Assert.Contains("[Warning] Test warning message", content);
+    }
+
+    [Fact]
+    public void LogError_WritesCorrectFormat()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        string message = "Test error message";
+
+        logger.Error(message);
+
+        string content = File.ReadAllText(_testFilePath);
+        Assert.Contains("[Error] Test error message", content);
+    }
+
+    [Fact]
+    public void MultipleLogs_WritesAllMessages()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+
+        logger.Debug("Debug 1");
+        logger.Info("Info 1");
+        logger.Warning("Warning 1");
+        logger.Error("Error 1");
+
+        string content = File.ReadAllText(_testFilePath);
+        var lines = content.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(4, lines.Length);
+        Assert.Contains("Debug 1", content);
+        Assert.Contains("Info 1", content);
+        Assert.Contains("Warning 1", content);
+        Assert.Contains("Error 1", content);
+    }
+
+    [Fact]
+    public void FileRotation_CreatesNewFileWhenSizeExceeded()
+    {
+        string baseFile = Path.GetTempFileName();
+        _tempFiles.Add(baseFile);
+        _tempFiles.Add(Path.Combine(Path.GetDirectoryName(baseFile), 
+            Path.GetFileNameWithoutExtension(baseFile) + "_1" + Path.GetExtension(baseFile)));
+
+        var logger = new FileLogger(baseFile, maxFileSize: 100, maxFiles: 2);
+
+        for (int i = 0; i < 10; i++)
+        {
+            logger.Info(new string('X', 20));
+        }
+
+        Assert.True(File.Exists(baseFile));
+        Assert.True(File.Exists(_tempFiles[1]));
+    }
+
+    [Fact]
+    public void FileRotation_MaxFilesLimitRespected()
+    {
+        string baseFile = Path.GetTempFileName();
+        var tempFiles = new List<string> { baseFile };
+        
+        for (int i = 1; i <= 5; i++)
+        {
+            tempFiles.Add(Path.Combine(Path.GetDirectoryName(baseFile), 
+                Path.GetFileNameWithoutExtension(baseFile) + $"_{i}" + Path.GetExtension(baseFile)));
+        }
+        _tempFiles.AddRange(tempFiles);
+
+        var logger = new FileLogger(baseFile, maxFileSize: 50, maxFiles: 3);
+
+        for (int i = 0; i < 50; i++)
+        {
+            logger.Info($"Message {i}");
+        }
+
+        Assert.True(File.Exists(tempFiles[0]));
+        Assert.True(File.Exists(tempFiles[1]));
+        Assert.True(File.Exists(tempFiles[2]));
+        Assert.False(File.Exists(tempFiles[3]));
+        Assert.False(File.Exists(tempFiles[4]));
+    }
+
+    [Fact]
+    public async Task MultithreadedLogging_NoMixedLines()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        int threadCount = 10;
+        int messagesPerThread = 100;
+        var tasks = new List<Task>();
+
+        for (int i = 0; i < threadCount; i++)
+        {
+            int threadId = i;
+            tasks.Add(Task.Run(() =>
+            {
+                for (int j = 0; j < messagesPerThread; j++)
+                {
+                    logger.Info($"Thread{threadId}_Message{j}");
+                }
+            }));
+        }
+
+        await Task.WhenAll(tasks);
+
+        string content = File.ReadAllText(_testFilePath);
+        var lines = content.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(threadCount * messagesPerThread, lines.Length);
+
+        for (int i = 0; i < threadCount; i++)
+        {
+            for (int j = 0; j < messagesPerThread; j++)
+            {
+                string expectedMessage = $"Thread{i}_Message{j}";
+                Assert.Single(lines.Where(line => line.Contains(expectedMessage)));
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MultithreadedLogging_FileNotCorrupted()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        int threadCount = 10;
+        int messagesPerThread = 50;
+        var tasks = new List<Task>();
+
+        for (int i = 0; i < threadCount; i++)
+        {
+            int threadId = i;
+            tasks.Add(Task.Run(() =>
+            {
+                for (int j = 0; j < messagesPerThread; j++)
+                {
+                    logger.Debug($"D{threadId}_{j}");
+                    logger.Info($"I{threadId}_{j}");
+                    logger.Warning($"W{threadId}_{j}");
+                    logger.Error($"E{threadId}_{j}");
+                }
+            }));
+        }
+
+        await Task.WhenAll(tasks);
+
+        string content = File.ReadAllText(_testFilePath);
+        var lines = content.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(threadCount * messagesPerThread * 4, lines.Length);
+
+        foreach (var line in lines)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(line));
+            Assert.Matches(@"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \[(Debug|Info|Warning|Error)\]", line);
+        }
+    }
+
+    [Fact]
+    public void LogLevels_AllLevelsFormattedCorrectly()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+
+        logger.Debug("Debug test");
+        logger.Info("Info test");
+        logger.Warning("Warning test");
+        logger.Error("Error test");
+
+        string content = File.ReadAllText(_testFilePath);
+        var lines = content.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(4, lines.Length);
+        Assert.Contains("[Debug] Debug test", lines[0]);
+        Assert.Contains("[Info] Info test", lines[1]);
+        Assert.Contains("[Warning] Warning test", lines[2]);
+        Assert.Contains("[Error] Error test", lines[3]);
+    }
+
+    [Fact]
+    public void LargeNumberOfLogs_AllWrittenSuccessfully()
+    {
+        var logger = new FileLogger(_testFilePath, maxFileSize: 1024 * 1024, maxFiles: 1);
+        int messageCount = 1000;
+
+        for (int i = 0; i < messageCount; i++)
+        {
+            logger.Info($"Message {i}");
+        }
+
+        string content = File.ReadAllText(_testFilePath);
+        var lines = content.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(messageCount, lines.Length);
+        
+        for (int i = 0; i < messageCount; i++)
+        {
+            Assert.Contains($"Message {i}", content);
+        }
+    }
+}
