@@ -1,0 +1,312 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+
+public class UserModel
+{
+    [Required(ErrorMessage = "Имя обязательно")]
+    [StringLength(50, MinimumLength = 2, ErrorMessage = "Имя должно быть от 2 до 50 символов")]
+    public string FirstName { get; set; }
+
+    [Required(ErrorMessage = "Фамилия обязательна")]
+    [StringLength(50, MinimumLength = 2, ErrorMessage = "Фамилия должна быть от 2 до 50 символов")]
+    public string LastName { get; set; }
+
+    [Required(ErrorMessage = "Email обязателен")]
+    [EmailAddress(ErrorMessage = "Некорректный формат email")]
+    public string Email { get; set; }
+
+    [Range(18, 100, ErrorMessage = "Возраст должен быть от 18 до 100 лет")]
+    public int Age { get; set; }
+}
+
+public class ModelValidator
+{
+    public bool Validate(object model, out Dictionary<string, List<string>> errors)
+    {
+        errors = new Dictionary<string, List<string>>();
+        var validationContext = new ValidationContext(model);
+        var validationResults = new List<ValidationResult>();
+
+        bool isValid = Validator.TryValidateObject(model, validationContext, validationResults, true);
+
+        if (!isValid)
+        {
+            foreach (var validationResult in validationResults)
+            {
+                foreach (var memberName in validationResult.MemberNames)
+                {
+                    if (!errors.ContainsKey(memberName))
+                    {
+                        errors[memberName] = new List<string>();
+                    }
+                    errors[memberName].Add(validationResult.ErrorMessage);
+                }
+            }
+        }
+
+        return isValid;
+    }
+}
+
+using System.Collections.Generic;
+using Xunit;
+
+public class ModelValidatorTests
+{
+    private readonly ModelValidator _validator;
+
+    public ModelValidatorTests()
+    {
+        _validator = new ModelValidator();
+    }
+
+    [Fact]
+    public void Validate_ValidModel_ReturnsTrue()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.True(result);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_EmptyFirstName_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["FirstName"]);
+        Assert.Contains("Имя обязательно", errors["FirstName"][0]);
+    }
+
+    [Fact]
+    public void Validate_ShortFirstName_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "И",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["FirstName"]);
+        Assert.Contains("Имя должно быть от 2 до 50 символов", errors["FirstName"][0]);
+    }
+
+    [Fact]
+    public void Validate_LongFirstName_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = new string('И', 51),
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["FirstName"]);
+        Assert.Contains("Имя должно быть от 2 до 50 символов", errors["FirstName"][0]);
+    }
+
+    [Fact]
+    public void Validate_EmptyLastName_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "",
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["LastName"]);
+        Assert.Contains("Фамилия обязательна", errors["LastName"][0]);
+    }
+
+    [Fact]
+    public void Validate_InvalidEmail_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "invalid-email",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["Email"]);
+        Assert.Contains("Некорректный формат email", errors["Email"][0]);
+    }
+
+    [Fact]
+    public void Validate_NullEmail_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = null,
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["Email"]);
+        Assert.Contains("Email обязателен", errors["Email"][0]);
+    }
+
+    [Fact]
+    public void Validate_AgeTooYoung_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 17
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["Age"]);
+        Assert.Contains("Возраст должен быть от 18 до 100 лет", errors["Age"][0]);
+    }
+
+    [Fact]
+    public void Validate_AgeTooOld_ReturnsFalseWithError()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 101
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Single(errors["Age"]);
+        Assert.Contains("Возраст должен быть от 18 до 100 лет", errors["Age"][0]);
+    }
+
+    [Fact]
+    public void Validate_MultipleErrors_ReturnsAllErrors()
+    {
+        var model = new UserModel
+        {
+            FirstName = "",
+            LastName = "",
+            Email = "invalid",
+            Age = 17
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.False(result);
+        Assert.Equal(4, errors.Count);
+        Assert.Contains("FirstName", errors.Keys);
+        Assert.Contains("LastName", errors.Keys);
+        Assert.Contains("Email", errors.Keys);
+        Assert.Contains("Age", errors.Keys);
+    }
+
+    [Fact]
+    public void Validate_MinimumValidAge_ReturnsTrue()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 18
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.True(result);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_MaximumValidAge_ReturnsTrue()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan@example.com",
+            Age = 100
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.True(result);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_ValidEmailWithSubdomain_ReturnsTrue()
+    {
+        var model = new UserModel
+        {
+            FirstName = "Иван",
+            LastName = "Петров",
+            Email = "ivan.petrov@sub.domain.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.True(result);
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void Validate_BoundaryNameLength_ReturnsTrue()
+    {
+        var model = new UserModel
+        {
+            FirstName = new string('И', 50),
+            LastName = new string('П', 50),
+            Email = "ivan@example.com",
+            Age = 25
+        };
+
+        bool result = _validator.Validate(model, out Dictionary<string, List<string>> errors);
+
+        Assert.True(result);
+        Assert.Empty(errors);
+    }
+}
