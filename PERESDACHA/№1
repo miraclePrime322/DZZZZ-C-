@@ -1,0 +1,205 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+
+public enum LogLevel
+{
+    Debug,
+    Info,
+    Warning,
+    Error
+}
+
+public interface ILogger
+{
+    void Debug(string message);
+    void Info(string message);
+    void Warning(string message);
+    void Error(string message);
+}
+
+public class FileLogger : ILogger
+{
+    private readonly string _baseFilePath;
+    private readonly long _maxFileSize;
+    private readonly int _maxFiles;
+    private readonly object _lockObject = new object();
+    private int _currentFileIndex;
+    private long _currentFileSize;
+
+    public FileLogger(string baseFilePath = "log.txt", long maxFileSize = 5 * 1024 * 1024, int maxFiles = 5)
+    {
+        _baseFilePath = baseFilePath;
+        _maxFileSize = maxFileSize;
+        _maxFiles = maxFiles;
+        InitializeLogger();
+    }
+
+    private void InitializeLogger()
+    {
+        lock (_lockObject)
+        {
+            _currentFileIndex = 0;
+            string currentFile = GetCurrentFilePath();
+            
+            if (File.Exists(currentFile))
+            {
+                FileInfo fileInfo = new FileInfo(currentFile);
+                _currentFileSize = fileInfo.Length;
+                
+                if (_currentFileSize >= _maxFileSize)
+                {
+                    RotateFiles();
+                }
+            }
+            else
+            {
+                _currentFileSize = 0;
+                string directory = Path.GetDirectoryName(currentFile);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+            }
+        }
+    }
+
+    public void Debug(string message)
+    {
+        Log(LogLevel.Debug, message);
+    }
+
+    public void Info(string message)
+    {
+        Log(LogLevel.Info, message);
+    }
+
+    public void Warning(string message)
+    {
+        Log(LogLevel.Warning, message);
+    }
+
+    public void Error(string message)
+    {
+        Log(LogLevel.Error, message);
+    }
+
+    private void Log(LogLevel level, string message)
+    {
+        lock (_lockObject)
+        {
+            string logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {message}";
+            string currentFile = GetCurrentFilePath();
+
+            CheckFileRotation();
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(currentFile, true))
+                {
+                    writer.WriteLine(logEntry);
+                }
+
+                _currentFileSize += System.Text.Encoding.UTF8.GetByteCount(logEntry + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка записи в лог: {ex.Message}");
+            }
+        }
+    }
+
+    private void CheckFileRotation()
+    {
+        if (_currentFileSize >= _maxFileSize)
+        {
+            RotateFiles();
+        }
+    }
+
+    private void RotateFiles()
+    {
+        try
+        {
+            for (int i = _maxFiles - 1; i > 0; i--)
+            {
+                string sourceFile = GetFilePathByIndex(i - 1);
+                string targetFile = GetFilePathByIndex(i);
+
+                if (File.Exists(sourceFile))
+                {
+                    if (File.Exists(targetFile))
+                    {
+                        File.Delete(targetFile);
+                    }
+                    File.Move(sourceFile, targetFile);
+                }
+            }
+
+            _currentFileIndex = 0;
+            _currentFileSize = 0;
+
+            string newFile = GetCurrentFilePath();
+            if (File.Exists(newFile))
+            {
+                File.Delete(newFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка ротации файлов: {ex.Message}");
+        }
+    }
+
+    private string GetCurrentFilePath()
+    {
+        return GetFilePathByIndex(_currentFileIndex);
+    }
+
+    private string GetFilePathByIndex(int index)
+    {
+        if (index == 0)
+        {
+            return _baseFilePath;
+        }
+
+        string directory = Path.GetDirectoryName(_baseFilePath);
+        string fileName = Path.GetFileNameWithoutExtension(_baseFilePath);
+        string extension = Path.GetExtension(_baseFilePath);
+
+        if (string.IsNullOrEmpty(directory))
+        {
+            return $"{fileName}_{index}{extension}";
+        }
+
+        return Path.Combine(directory, $"{fileName}_{index}{extension}");
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        ILogger logger = new FileLogger("logs/app.log");
+        
+        logger.Debug("Отладочное сообщение");
+        logger.Info("Информационное сообщение");
+        logger.Warning("Предупреждение");
+        logger.Error("Ошибка в системе");
+
+        // Многопоточное тестирование
+        for (int i = 0; i < 10; i++)
+        {
+            int threadId = i;
+            Thread thread = new Thread(() =>
+            {
+                for (int j = 0; j < 100; j++)
+                {
+                    logger.Info($"Поток {threadId}, сообщение {j}");
+                }
+            });
+            thread.Start();
+        }
+    }
+}
