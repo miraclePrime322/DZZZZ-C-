@@ -1,0 +1,120 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+
+public enum Priority
+{
+    Low,
+    Medium,
+    High
+}
+
+public class PriorityTaskQueue
+{
+    private readonly SortedDictionary<Priority, Queue<Action>> _queues;
+    private readonly object _lockObject = new object();
+
+    public PriorityTaskQueue()
+    {
+        _queues = new SortedDictionary<Priority, Queue<Action>>(Comparer<Priority>.Create((x, y) => y.CompareTo(x)))
+        {
+            [Priority.High] = new Queue<Action>(),
+            [Priority.Medium] = new Queue<Action>(),
+            [Priority.Low] = new Queue<Action>()
+        };
+    }
+
+    public void Enqueue(Action task, Priority priority = Priority.Medium)
+    {
+        if (task == null)
+            throw new ArgumentNullException(nameof(task));
+
+        lock (_lockObject)
+        {
+            _queues[priority].Enqueue(task);
+        }
+    }
+
+    public void Enqueue<T>(Func<T> task, Priority priority = Priority.Medium)
+    {
+        if (task == null)
+            throw new ArgumentNullException(nameof(task));
+
+        Action wrappedTask = () => task();
+        Enqueue(wrappedTask, priority);
+    }
+
+    public bool TryDequeue(out Action task)
+    {
+        task = null;
+        lock (_lockObject)
+        {
+            foreach (var queue in _queues.Values)
+            {
+                if (queue.Count > 0)
+                {
+                    task = queue.Dequeue();
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    public int Count
+    {
+        get
+        {
+            lock (_lockObject)
+            {
+                int count = 0;
+                foreach (var queue in _queues.Values)
+                {
+                    count += queue.Count;
+                }
+                return count;
+            }
+        }
+    }
+
+    public int GetCountByPriority(Priority priority)
+    {
+        lock (_lockObject)
+        {
+            return _queues[priority].Count;
+        }
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        PriorityTaskQueue taskQueue = new PriorityTaskQueue();
+
+        // Добавление задач с разными приоритетами
+        taskQueue.Enqueue(() => Console.WriteLine("Низкоприоритетная задача 1"), Priority.Low);
+        taskQueue.Enqueue(() => Console.WriteLine("Высокоприоритетная задача 1"), Priority.High);
+        taskQueue.Enqueue(() => Console.WriteLine("Среднеприоритетная задача 1"), Priority.Medium);
+        taskQueue.Enqueue(() => Console.WriteLine("Высокоприоритетная задача 2"), Priority.High);
+        taskQueue.Enqueue(() => Console.WriteLine("Низкоприоритетная задача 2"), Priority.Low);
+
+        // Добавление задачи с возвращаемым значением
+        taskQueue.Enqueue(() => CalculateSum(5, 10), Priority.Medium);
+
+        // Извлечение и выполнение задач в порядке приоритета
+        while (taskQueue.TryDequeue(out Action task))
+        {
+            task();
+        }
+
+        Console.WriteLine($"Осталось задач в очереди: {taskQueue.Count}");
+    }
+
+    static int CalculateSum(int a, int b)
+    {
+        int result = a + b;
+        Console.WriteLine($"Результат вычисления: {result}");
+        return result;
+    }
+}
