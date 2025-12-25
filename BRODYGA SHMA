@@ -284,232 +284,358 @@ public class Player : MonoBehaviour
 }
 
 
+// MenuManager.cs - повесьте на объект в сцене MainMenu
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class MenuManager : MonoBehaviour
 {
-    [Header("UI References")]
-    [SerializeField] private Button startButton;
-    [SerializeField] private Button quitButton;
-    [SerializeField] private string gameSceneName = "GameScene";
-
-    private void Start()
-    {
-        // Убедимся, что время идет нормально
-        Time.timeScale = 1f;
-
-        // Назначаем события кнопкам
-        if (startButton != null)
-        {
-            startButton.onClick.AddListener(StartGame);
-        }
-
-        if (quitButton != null)
-        {
-            quitButton.onClick.AddListener(QuitGame);
-        }
-    }
-
     public void StartGame()
     {
-        Debug.Log("Starting game...");
-        SceneManager.LoadScene(gameSceneName);
+        Debug.Log("MenuManager: Starting game...");
+
+        // Используем GameManager для загрузки сцены
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.StartGame();
+        }
+        else
+        {
+            // Резервный вариант
+            SceneManager.LoadScene("GameScene");
+        }
     }
 
     public void QuitGame()
     {
-        Debug.Log("Quitting game from menu...");
+        Debug.Log("MenuManager: Quitting game...");
 
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.QuitGame();
+        }
+        else
+        {
 #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
+            UnityEditor.EditorApplication.isPlaying = false;
 #else
-            Application.Quit();
+                Application.Quit();
 #endif
+        }
     }
 }
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
+using TMPro;
 using System.Collections;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager Instance;
+    public static GameManager Instance { get; private set; }
 
-    // Не храним прямые ссылки на панели
-    // Вместо этого будем находить их при необходимости
-    private GameObject _pauseMenuPanel;
-    private GameObject _gameOverMenuPanel;
+    [Header("UI References")]
+    [SerializeField] private GameObject pauseMenuPanel;
+    [SerializeField] private GameObject gameOverMenuPanel;
+    [SerializeField] private TextMeshProUGUI gameOverText;
 
-    // Флаг для отслеживания, ищем ли мы панели
-    private bool _panelsFound = false;
+    [Header("Scene Settings")]
+    [SerializeField] private string mainMenuSceneName = "MainMenu";
+    [SerializeField] private string gameSceneName = "GameScene";
 
-    void Awake()
+    [Header("Game Settings")]
+    [SerializeField] private float gameOverDelay = 1.5f;
+
+    private bool isGamePaused = false;
+    private bool isGameOver = false;
+
+    private void Awake()
     {
+        // Singleton pattern
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(this.gameObject);
-
-            // Подписываемся на событие загрузки сцены
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            DontDestroyOnLoad(gameObject); // Делаем постоянным
         }
         else
         {
             Destroy(gameObject);
+            return;
         }
+
+        // Скрываем меню при старте
+        HideAllMenus();
+
+        // Подписываемся на события загрузки сцен
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    void OnDestroy()
+    private void Start()
     {
-        // Отписываемся при уничтожении
-        SceneManager.sceneLoaded -= OnSceneLoaded;
+        // Логируем доступные сцены для отладки
+        DebugAvailableScenes();
+
+        // Подписываемся на смерть игрока (если игрок уже на сцене)
+        SubscribeToPlayerEvents();
     }
 
-    // Вызывается каждый раз при загрузке сцены
-    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        Debug.Log($"Scene loaded: {scene.name}");
+        Debug.Log($"Scene loaded: {scene.name} (index: {scene.buildIndex})");
 
-        // Сбрасываем флаг поиска панелей
-        _panelsFound = false;
+        // Сбрасываем состояние при загрузке новой сцены
+        isGameOver = false;
+        isGamePaused = false;
+        Time.timeScale = 1f;
 
-        // Если это игровая сцена - находим панели
-        if (scene.buildIndex == 1 || scene.name == "GameScene")
+        // Скрываем все меню
+        HideAllMenus();
+
+        // Ищем игрока на новой сцене и подписываемся на события
+        SubscribeToPlayerEvents();
+
+        // Находим UI элементы на новой сцене
+        FindUIElementsInScene();
+    }
+
+    private void SubscribeToPlayerEvents()
+    {
+        // Находим игрока на сцене
+        Player player = FindObjectOfType<Player>();
+
+        if (player != null)
         {
-            StartCoroutine(FindPanelsInNewScene());
-        }
-        else if (scene.buildIndex == 0) // Главное меню
-        {
-            // Сбрасываем время
-            Time.timeScale = 1f;
-        }
-    }
-
-    // Корутина для поиска панелей (с небольшой задержкой)
-    IEnumerator FindPanelsInNewScene()
-    {
-        // Ждем один кадр, чтобы все объекты успели инициализироваться
-        yield return null;
-
-        FindAllPanels();
-    }
-
-    void FindAllPanels()
-    {
-        // Ищем Canvas в новой сцене
-        Canvas canvas = FindObjectOfType<Canvas>();
-        if (canvas != null)
-        {
-            Debug.Log($"Found canvas: {canvas.name}");
-
-            // Ищем панели среди дочерних объектов Canvas
-            foreach (Transform child in canvas.transform)
-            {
-                if (child.name == "Panel_PauseMenu" || child.name.Contains("Pause"))
-                {
-                    _pauseMenuPanel = child.gameObject;
-                    Debug.Log($"Found pause panel: {_pauseMenuPanel.name}");
-                }
-
-                if (child.name == "Panel_GameOverMenu" || child.name.Contains("GameOver"))
-                {
-                    _gameOverMenuPanel = child.gameObject;
-                    Debug.Log($"Found game over panel: {_gameOverMenuPanel.name}");
-                }
-            }
-
-            // Альтернативный поиск по тегам
-            if (_pauseMenuPanel == null)
-            {
-                GameObject pauseObj = GameObject.FindGameObjectWithTag("PauseMenu");
-                if (pauseObj != null) _pauseMenuPanel = pauseObj;
-            }
-
-            if (_gameOverMenuPanel == null)
-            {
-                GameObject gameOverObj = GameObject.FindGameObjectWithTag("GameOverMenu");
-                if (gameOverObj != null) _gameOverMenuPanel = gameOverObj;
-            }
-
-            // Деактивируем панели при старте
-            if (_pauseMenuPanel != null) _pauseMenuPanel.SetActive(false);
-            if (_gameOverMenuPanel != null) _gameOverMenuPanel.SetActive(false);
-
-            _panelsFound = (_pauseMenuPanel != null && _gameOverMenuPanel != null);
+            player.OnPlayerDeath += HandlePlayerDeath;
+            Debug.Log("Subscribed to player death events");
         }
         else
         {
-            Debug.LogWarning("No Canvas found in the scene!");
+            Debug.Log("Player not found in current scene");
         }
     }
 
-    // === Публичные методы с проверкой ===
-
-    public void TogglePause()
+    private void FindUIElementsInScene()
     {
-        // Если панель еще не найдена, ищем
-        if (_pauseMenuPanel == null)
+        // Автоматически находим UI элементы на сцене
+        if (pauseMenuPanel == null)
         {
-            FindAllPanels();
+            GameObject pauseObj = GameObject.Find("Panel_PauseMenu");
+            if (pauseObj != null) pauseMenuPanel = pauseObj;
+        }
 
-            if (_pauseMenuPanel == null)
+        if (gameOverMenuPanel == null)
+        {
+            GameObject gameOverObj = GameObject.Find("Panel_GameOverMenu");
+            if (gameOverObj != null) gameOverMenuPanel = gameOverObj;
+        }
+
+        // Скрываем меню после поиска
+        HideAllMenus();
+    }
+
+    private void HideAllMenus()
+    {
+        if (pauseMenuPanel != null) pauseMenuPanel.SetActive(false);
+        if (gameOverMenuPanel != null) gameOverMenuPanel.SetActive(false);
+    }
+
+    private void DebugAvailableScenes()
+    {
+        Debug.Log("=== Available Scenes in Build ===");
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
+            string sceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+            Debug.Log($"[{i}] {sceneName}");
+        }
+    }
+
+    // ========== ОБРАБОТКА СМЕРТИ ИГРОКА ==========
+
+    private void HandlePlayerDeath()
+    {
+        if (isGameOver) return;
+
+        isGameOver = true;
+        Debug.Log("GameManager: Player died!");
+
+        StartCoroutine(ShowGameOverMenuAfterDelay());
+    }
+
+    private IEnumerator ShowGameOverMenuAfterDelay()
+    {
+        yield return new WaitForSeconds(gameOverDelay);
+
+        ShowGameOverMenu();
+    }
+
+    private void ShowGameOverMenu()
+    {
+        if (gameOverMenuPanel != null)
+        {
+            gameOverMenuPanel.SetActive(true);
+
+            if (gameOverText != null)
             {
-                Debug.LogError("Pause panel not found!");
-                return;
+                gameOverText.text = "GAME OVER";
             }
-        }
 
-        bool isPaused = !_pauseMenuPanel.activeSelf;
-        _pauseMenuPanel.SetActive(isPaused);
-        Time.timeScale = isPaused ? 0f : 1f;
-    }
-
-    public void ContinueGame()
-    {
-        if (_pauseMenuPanel != null)
-        {
-            _pauseMenuPanel.SetActive(false);
-            Time.timeScale = 1f;
-        }
-        else
-        {
-            Debug.LogWarning("Pause panel reference is null");
-        }
-    }
-
-    public void ShowGameOver()
-    {
-        if (_gameOverMenuPanel == null) FindAllPanels();
-
-        if (_gameOverMenuPanel != null)
-        {
-            _gameOverMenuPanel.SetActive(true);
             Time.timeScale = 0f;
         }
         else
         {
-            Debug.LogError("Game Over panel not found!");
+            Debug.LogError("Game Over panel is not assigned! Trying to find...");
+
+            // Пытаемся найти автоматически
+            GameObject foundPanel = GameObject.Find("Panel_GameOverMenu");
+            if (foundPanel != null)
+            {
+                gameOverMenuPanel = foundPanel;
+                gameOverMenuPanel.SetActive(true);
+                Time.timeScale = 0f;
+            }
+            else
+            {
+                Debug.LogError("Game Over panel not found in scene!");
+                // Альтернатива: загрузить сцену с меню
+                // SceneManager.LoadScene("GameOverScene");
+            }
         }
     }
 
-    public void RestartGame()
+    // ========== МЕТОДЫ ДЛЯ КНОПОК ==========
+
+    public void StartGame()
     {
+        Debug.Log("Starting game...");
+
+        // Способ 1: Загрузка по индексу (рекомендуется)
+        if (SceneManager.sceneCountInBuildSettings > 1)
+        {
+            SceneManager.LoadScene(1); // GameScene под индексом 1
+        }
+        else
+        {
+            // Способ 2: Загрузка по имени (если индексы сбились)
+            LoadSceneByName(gameSceneName);
+        }
+    }
+
+    public void RetryGame()
+    {
+        Debug.Log("Retrying game...");
+
         Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+
+        // Перезагружаем текущую сцену
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        SceneManager.LoadScene(currentSceneIndex);
     }
 
     public void ReturnToMainMenu()
     {
+        Debug.Log("Returning to main menu...");
+
         Time.timeScale = 1f;
-        SceneManager.LoadScene(0); // или "MainMenu"
+
+        // Способ 1: По индексу (0 - главное меню)
+        if (SceneManager.sceneCountInBuildSettings > 0)
+        {
+            SceneManager.LoadScene(0);
+        }
+        else
+        {
+            // Способ 2: По имени
+            LoadSceneByName(mainMenuSceneName);
+        }
+    }
+
+    private void LoadSceneByName(string sceneName)
+    {
+        if (SceneExists(sceneName))
+        {
+            SceneManager.LoadScene(sceneName);
+        }
+        else
+        {
+            Debug.LogError($"Scene '{sceneName}' not found in build settings!");
+
+            // Показываем ошибку игроку
+            if (gameOverText != null)
+            {
+                gameOverText.text = $"ERROR: Scene '{sceneName}' not found!";
+            }
+        }
+    }
+
+    private bool SceneExists(string sceneName)
+    {
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
+            string name = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+
+            if (name == sceneName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ========== УПРАВЛЕНИЕ ПАУЗОЙ ==========
+
+    private void Update()
+    {
+        // Пауза по Escape (только в игровой сцене)
+        if (Input.GetKeyDown(KeyCode.Escape) &&
+            !isGameOver &&
+            SceneManager.GetActiveScene().name != mainMenuSceneName)
+        {
+            TogglePause();
+        }
+
+        // Тестовая клавиша для смерти (удалить в финальной версии)
+        if (Input.GetKeyDown(KeyCode.K) &&
+            SceneManager.GetActiveScene().name == gameSceneName)
+        {
+            Player player = FindObjectOfType<Player>();
+            if (player != null && !player.IsDead())
+            {
+                player.TakeDamage(1000);
+            }
+        }
+    }
+
+    public void TogglePause()
+    {
+        if (isGameOver) return;
+
+        isGamePaused = !isGamePaused;
+
+        if (pauseMenuPanel != null)
+        {
+            pauseMenuPanel.SetActive(isGamePaused);
+        }
+
+        Time.timeScale = isGamePaused ? 0f : 1f;
+    }
+
+    public void ContinueGame()
+    {
+        if (pauseMenuPanel != null)
+        {
+            pauseMenuPanel.SetActive(false);
+        }
+
+        isGamePaused = false;
+        Time.timeScale = 1f;
     }
 
     public void QuitGame()
     {
+        Debug.Log("Quitting game...");
+
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
@@ -517,83 +643,17 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
-    // Метод для принудительного поиска панелей (можно вызвать из других скриптов)
-    public void RefreshPanelReferences()
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
+
+    private void OnDestroy()
     {
-        FindAllPanels();
-    }
-}
+        // Отписываемся от событий
+        SceneManager.sceneLoaded -= OnSceneLoaded;
 
-using UnityEngine;
-using UnityEngine.UI;
-
-public class HealthBarUI : MonoBehaviour
-{
-    [SerializeField] private Slider healthSlider;
-
-    void Start()
-    {
-        // Автоматически находим Slider если не назначен
-        if (healthSlider == null)
+        Player player = FindObjectOfType<Player>();
+        if (player != null)
         {
-            healthSlider = GetComponent<Slider>();
-        }
-
-        // Инициализируем с максимальным здоровьем
-        if (healthSlider != null)
-        {
-            healthSlider.maxValue = 100;
-            healthSlider.value = 100;
-        }
-
-        Debug.Log("Health Bar initialized");
-    }
-
-    void Update()
-    {
-        // Обновляем Health Bar от игрока
-        if (Player.Instance != null)
-        {
-            UpdateHealthBar();
-        }
-    }
-
-    void UpdateHealthBar()
-    {
-        if (healthSlider != null)
-        {
-            // Устанавливаем максимальное и текущее здоровье
-            healthSlider.maxValue = Player.Instance.GetMaxHealth();
-            healthSlider.value = Player.Instance.GetCurrentHealth();
-
-            // Меняем цвет в зависимости от здоровья
-            UpdateHealthColor();
-        }
-    }
-
-    void UpdateHealthColor()
-    {
-        // Находим компонент Fill (заполнение)
-        Transform fillArea = healthSlider.transform.Find("Fill Area");
-        if (fillArea != null)
-        {
-            Transform fill = fillArea.Find("Fill");
-            if (fill != null)
-            {
-                Image fillImage = fill.GetComponent<Image>();
-                if (fillImage != null)
-                {
-                    // Меняем цвет в зависимости от процента здоровья
-                    float healthPercent = healthSlider.value / healthSlider.maxValue;
-
-                    if (healthPercent > 0.6f)
-                        fillImage.color = Color.green;      // Высокое здоровье
-                    else if (healthPercent > 0.3f)
-                        fillImage.color = Color.yellow;     // Среднее здоровье
-                    else
-                        fillImage.color = Color.red;        // Низкое здоровье
-                }
-            }
+            player.OnPlayerDeath -= HandlePlayerDeath;
         }
     }
 }
