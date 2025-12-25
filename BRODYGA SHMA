@@ -1,0 +1,1370 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+[SelectionBase]
+public class Player : MonoBehaviour
+{
+    public static Player Instance { get; private set; }
+
+    [Header("Movement Settings")]
+    [SerializeField] private float movingSpeed = 5f;
+
+    [Header("Attack Settings")]
+    [SerializeField] private int attackDamage = 10;
+    [SerializeField] private float attackCooldown = 0.5f;
+
+    [Header("Health Settings")]
+    [SerializeField] private int maxHealth = 100;
+
+    // СОБЫТИЕ СМЕРТИ (ДОБАВЬТЕ ЭТУ СТРОЧКУ):
+    public event System.Action OnPlayerDeath;
+
+    // Анимационные параметры
+    private const string IS_RUNNING = "IsRunning";
+    private const string IS_ATTACKING = "IsAttacking";
+    private const string ATTACK_TRIGGER = "Attack";
+    private const string DIE_TRIGGER = "Die";
+
+    private Vector2 inputVector;
+    private Rigidbody2D rb;
+    private Animator animator;
+    private SpriteRenderer spriteRenderer;
+
+    private float minMovingSpeed = 0.1f;
+    private bool isRunning = false;
+    private bool isAttacking = false;
+    private bool isDead = false;
+    private float lastAttackTime = 0f;
+    private int currentHealth;
+    private List<PolygonCollider2D> attackColliders = new List<PolygonCollider2D>();
+    private bool attackColliderActive = false;
+
+    private void Awake()
+    {
+        Instance = this;
+        rb = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        currentHealth = maxHealth;
+
+        // Получаем коллайдеры атаки
+        var allColliders = GetComponentsInChildren<PolygonCollider2D>(true);
+        foreach (var collider in allColliders)
+        {
+            if (collider.gameObject.name.Contains("Attack") ||
+                collider.gameObject.CompareTag("AttackCollider"))
+            {
+                attackColliders.Add(collider);
+            }
+        }
+
+        Debug.Log($"Found {attackColliders.Count} attack colliders");
+        SetAttackCollidersEnabled(false);
+    }
+
+    private void Start()
+    {
+        SetAttackCollidersEnabled(false);
+        Gameinput.Instance.OnPlayerAttack += Gameinput_OnPlayerAttack;
+    }
+
+    private void Gameinput_OnPlayerAttack(object sender, System.EventArgs e)
+    {
+        if (!isDead) TryAttack();
+    }
+
+    private void SetAttackCollidersEnabled(bool enabled)
+    {
+        attackColliderActive = enabled;
+        foreach (var collider in attackColliders)
+        {
+            if (collider != null) collider.enabled = enabled;
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        if (isDead) return;
+
+        currentHealth -= damage;
+        currentHealth = Mathf.Max(0, currentHealth);
+
+        Debug.Log($"Player took {damage} damage. Health: {currentHealth}/{maxHealth}");
+
+        StartCoroutine(DamageFlash());
+
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+
+    private IEnumerator DamageFlash()
+    {
+        if (spriteRenderer != null)
+        {
+            Color originalColor = spriteRenderer.color;
+            spriteRenderer.color = Color.red;
+            yield return new WaitForSeconds(0.1f);
+            spriteRenderer.color = originalColor;
+        }
+    }
+
+    private void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+        Debug.Log("Player died!");
+
+        // ВЫЗЫВАЕМ СОБЫТИЕ СМЕРТИ (ВАЖНАЯ СТРОЧКА):
+        OnPlayerDeath?.Invoke();
+
+        rb.velocity = Vector2.zero;
+
+        if (animator != null)
+        {
+            animator.SetTrigger(DIE_TRIGGER);
+            animator.SetBool(IS_RUNNING, false);
+            animator.SetBool(IS_ATTACKING, false);
+        }
+
+        Collider2D playerCollider = GetComponent<Collider2D>();
+        if (playerCollider != null) playerCollider.enabled = false;
+
+        Gameinput.Instance.OnPlayerAttack -= Gameinput_OnPlayerAttack;
+    }
+
+    public void DealDamage(Collider2D other)
+    {
+        if (!isAttacking || !attackColliderActive || isDead) return;
+
+        EnemyAI enemy = other.GetComponent<EnemyAI>();
+        if (enemy != null)
+        {
+            enemy.TakeDamage(attackDamage);
+        }
+    }
+
+    public bool TryAttack()
+    {
+        if (isDead || Time.time - lastAttackTime < attackCooldown || isAttacking)
+            return false;
+
+        lastAttackTime = Time.time;
+        isAttacking = true;
+
+        if (animator != null)
+        {
+            animator.SetBool(IS_ATTACKING, true);
+            animator.SetTrigger(ATTACK_TRIGGER);
+        }
+
+        return true;
+    }
+
+    private void Update()
+    {
+        if (isDead) return;
+
+        inputVector = Gameinput.Instance.GetMovmentVector();
+
+        // ОПРЕДЕЛЯЕМ БЕГ
+        isRunning = inputVector.magnitude > minMovingSpeed;
+
+        // ОБНОВЛЯЕМ АНИМАТОР
+        if (animator != null)
+        {
+            animator.SetBool(IS_RUNNING, isRunning);
+        }
+
+        // ПОВОРАЧИВАЕМ СПРАЙТ В СТОРОНУ МЫШИ
+        RotateTowardsMouse();
+    }
+
+    private void FixedUpdate()
+    {
+        if (isDead) return;
+
+        HandleMovement();
+    }
+
+    private void HandleMovement()
+    {
+        inputVector = inputVector.normalized;
+        rb.MovePosition(rb.position + inputVector * (movingSpeed * Time.fixedDeltaTime));
+    }
+
+    // ПОВОРОТ СПРАЙТА В СТОРОНУ МЫШИ
+    private void RotateTowardsMouse()
+    {
+        if (Gameinput.Instance == null) return;
+
+        Vector3 mousePos = Gameinput.Instance.GetMousePosition();
+        Vector3 playerScreenPos = Camera.main.WorldToScreenPoint(transform.position);
+
+        // Поворачиваем спрайт
+        spriteRenderer.flipX = mousePos.x < playerScreenPos.x;
+
+        // Обновляем коллайдеры атаки (если они есть)
+        UpdateAttackCollidersDirection();
+    }
+
+    private void UpdateAttackCollidersDirection()
+    {
+        // Если у вас есть отдельные коллайдеры для левой/правой атаки
+        // Здесь можно переключать их активность
+    }
+
+    // Animation Events
+    public void EnableAttackCollider()
+    {
+        if (isAttacking && !isDead)
+        {
+            SetAttackCollidersEnabled(true);
+        }
+    }
+
+    public void DisableAttackCollider()
+    {
+        SetAttackCollidersEnabled(false);
+    }
+
+    public void EndAttack()
+    {
+        isAttacking = false;
+
+        if (animator != null)
+        {
+            animator.SetBool(IS_ATTACKING, false);
+        }
+    }
+
+    // ========== МЕТОДЫ ДЛЯ HEALTH BAR ==========
+
+    // Получить текущее здоровье (для Health Bar)
+    public int GetCurrentHealth()
+    {
+        return currentHealth;
+    }
+
+    // Получить максимальное здоровье (для Health Bar)
+    public int GetMaxHealth()
+    {
+        return maxHealth;
+    }
+
+    // Получить процент здоровья (дополнительно)
+    public float GetHealthPercentage()
+    {
+        return (float)currentHealth / maxHealth;
+    }
+
+    // Восстановить здоровье (дополнительно, на будущее)
+    public void Heal(int healAmount)
+    {
+        if (isDead) return;
+
+        currentHealth = Mathf.Min(maxHealth, currentHealth + healAmount);
+        Debug.Log($"Player healed {healAmount}. Health: {currentHealth}/{maxHealth}");
+    }
+
+    // ============================================
+
+    public bool IsRunning() => isRunning;
+    public bool IsAttacking() => isAttacking;
+    public bool IsAttackColliderActive() => attackColliderActive;
+    public bool IsDead() => isDead;
+
+    public Vector3 GetPlayerScreenPosition()
+    {
+        return Camera.main.WorldToScreenPoint(transform.position);
+    }
+}
+
+
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+public class MenuManager : MonoBehaviour
+{
+    [Header("UI References")]
+    [SerializeField] private Button startButton;
+    [SerializeField] private Button quitButton;
+    [SerializeField] private string gameSceneName = "GameScene";
+
+    private void Start()
+    {
+        // Убедимся, что время идет нормально
+        Time.timeScale = 1f;
+
+        // Назначаем события кнопкам
+        if (startButton != null)
+        {
+            startButton.onClick.AddListener(StartGame);
+        }
+
+        if (quitButton != null)
+        {
+            quitButton.onClick.AddListener(QuitGame);
+        }
+    }
+
+    public void StartGame()
+    {
+        Debug.Log("Starting game...");
+        SceneManager.LoadScene(gameSceneName);
+    }
+
+    public void QuitGame()
+    {
+        Debug.Log("Quitting game from menu...");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+    }
+}
+
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using System.Collections;
+
+public class GameManager : MonoBehaviour
+{
+    public static GameManager Instance;
+
+    // Не храним прямые ссылки на панели
+    // Вместо этого будем находить их при необходимости
+    private GameObject _pauseMenuPanel;
+    private GameObject _gameOverMenuPanel;
+
+    // Флаг для отслеживания, ищем ли мы панели
+    private bool _panelsFound = false;
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(this.gameObject);
+
+            // Подписываемся на событие загрузки сцены
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Отписываемся при уничтожении
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    // Вызывается каждый раз при загрузке сцены
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Debug.Log($"Scene loaded: {scene.name}");
+
+        // Сбрасываем флаг поиска панелей
+        _panelsFound = false;
+
+        // Если это игровая сцена - находим панели
+        if (scene.buildIndex == 1 || scene.name == "GameScene")
+        {
+            StartCoroutine(FindPanelsInNewScene());
+        }
+        else if (scene.buildIndex == 0) // Главное меню
+        {
+            // Сбрасываем время
+            Time.timeScale = 1f;
+        }
+    }
+
+    // Корутина для поиска панелей (с небольшой задержкой)
+    IEnumerator FindPanelsInNewScene()
+    {
+        // Ждем один кадр, чтобы все объекты успели инициализироваться
+        yield return null;
+
+        FindAllPanels();
+    }
+
+    void FindAllPanels()
+    {
+        // Ищем Canvas в новой сцене
+        Canvas canvas = FindObjectOfType<Canvas>();
+        if (canvas != null)
+        {
+            Debug.Log($"Found canvas: {canvas.name}");
+
+            // Ищем панели среди дочерних объектов Canvas
+            foreach (Transform child in canvas.transform)
+            {
+                if (child.name == "Panel_PauseMenu" || child.name.Contains("Pause"))
+                {
+                    _pauseMenuPanel = child.gameObject;
+                    Debug.Log($"Found pause panel: {_pauseMenuPanel.name}");
+                }
+
+                if (child.name == "Panel_GameOverMenu" || child.name.Contains("GameOver"))
+                {
+                    _gameOverMenuPanel = child.gameObject;
+                    Debug.Log($"Found game over panel: {_gameOverMenuPanel.name}");
+                }
+            }
+
+            // Альтернативный поиск по тегам
+            if (_pauseMenuPanel == null)
+            {
+                GameObject pauseObj = GameObject.FindGameObjectWithTag("PauseMenu");
+                if (pauseObj != null) _pauseMenuPanel = pauseObj;
+            }
+
+            if (_gameOverMenuPanel == null)
+            {
+                GameObject gameOverObj = GameObject.FindGameObjectWithTag("GameOverMenu");
+                if (gameOverObj != null) _gameOverMenuPanel = gameOverObj;
+            }
+
+            // Деактивируем панели при старте
+            if (_pauseMenuPanel != null) _pauseMenuPanel.SetActive(false);
+            if (_gameOverMenuPanel != null) _gameOverMenuPanel.SetActive(false);
+
+            _panelsFound = (_pauseMenuPanel != null && _gameOverMenuPanel != null);
+        }
+        else
+        {
+            Debug.LogWarning("No Canvas found in the scene!");
+        }
+    }
+
+    // === Публичные методы с проверкой ===
+
+    public void TogglePause()
+    {
+        // Если панель еще не найдена, ищем
+        if (_pauseMenuPanel == null)
+        {
+            FindAllPanels();
+
+            if (_pauseMenuPanel == null)
+            {
+                Debug.LogError("Pause panel not found!");
+                return;
+            }
+        }
+
+        bool isPaused = !_pauseMenuPanel.activeSelf;
+        _pauseMenuPanel.SetActive(isPaused);
+        Time.timeScale = isPaused ? 0f : 1f;
+    }
+
+    public void ContinueGame()
+    {
+        if (_pauseMenuPanel != null)
+        {
+            _pauseMenuPanel.SetActive(false);
+            Time.timeScale = 1f;
+        }
+        else
+        {
+            Debug.LogWarning("Pause panel reference is null");
+        }
+    }
+
+    public void ShowGameOver()
+    {
+        if (_gameOverMenuPanel == null) FindAllPanels();
+
+        if (_gameOverMenuPanel != null)
+        {
+            _gameOverMenuPanel.SetActive(true);
+            Time.timeScale = 0f;
+        }
+        else
+        {
+            Debug.LogError("Game Over panel not found!");
+        }
+    }
+
+    public void RestartGame()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    public void ReturnToMainMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(0); // или "MainMenu"
+    }
+
+    public void QuitGame()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+    }
+
+    // Метод для принудительного поиска панелей (можно вызвать из других скриптов)
+    public void RefreshPanelReferences()
+    {
+        FindAllPanels();
+    }
+}
+
+using UnityEngine;
+using UnityEngine.UI;
+
+public class HealthBarUI : MonoBehaviour
+{
+    [SerializeField] private Slider healthSlider;
+
+    void Start()
+    {
+        // Автоматически находим Slider если не назначен
+        if (healthSlider == null)
+        {
+            healthSlider = GetComponent<Slider>();
+        }
+
+        // Инициализируем с максимальным здоровьем
+        if (healthSlider != null)
+        {
+            healthSlider.maxValue = 100;
+            healthSlider.value = 100;
+        }
+
+        Debug.Log("Health Bar initialized");
+    }
+
+    void Update()
+    {
+        // Обновляем Health Bar от игрока
+        if (Player.Instance != null)
+        {
+            UpdateHealthBar();
+        }
+    }
+
+    void UpdateHealthBar()
+    {
+        if (healthSlider != null)
+        {
+            // Устанавливаем максимальное и текущее здоровье
+            healthSlider.maxValue = Player.Instance.GetMaxHealth();
+            healthSlider.value = Player.Instance.GetCurrentHealth();
+
+            // Меняем цвет в зависимости от здоровья
+            UpdateHealthColor();
+        }
+    }
+
+    void UpdateHealthColor()
+    {
+        // Находим компонент Fill (заполнение)
+        Transform fillArea = healthSlider.transform.Find("Fill Area");
+        if (fillArea != null)
+        {
+            Transform fill = fillArea.Find("Fill");
+            if (fill != null)
+            {
+                Image fillImage = fill.GetComponent<Image>();
+                if (fillImage != null)
+                {
+                    // Меняем цвет в зависимости от процента здоровья
+                    float healthPercent = healthSlider.value / healthSlider.maxValue;
+
+                    if (healthPercent > 0.6f)
+                        fillImage.color = Color.green;      // Высокое здоровье
+                    else if (healthPercent > 0.3f)
+                        fillImage.color = Color.yellow;     // Среднее здоровье
+                    else
+                        fillImage.color = Color.red;        // Низкое здоровье
+                }
+            }
+        }
+    }
+}
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class CameraBounds : MonoBehaviour
+{
+    [Header("Boundary Objects")]
+    [SerializeField] private GameObject leftBound;
+    [SerializeField] private GameObject rightBound;
+    [SerializeField] private GameObject topBound;
+    [SerializeField] private GameObject bottomBound;
+
+    [Header("Boundary Settings")]
+    [SerializeField] private float boundaryThickness = 1f;
+    [SerializeField] private float boundaryOffset = 2f; // Отступ от края камеры
+
+    private Camera cam;
+    private float camHeight;
+    private float camWidth;
+
+    void Start()
+    {
+        cam = Camera.main;
+        CalculateCameraSize();
+        CreateBounds();
+    }
+
+    void CalculateCameraSize()
+    {
+        if (cam == null) return;
+
+        camHeight = cam.orthographicSize;
+        camWidth = camHeight * cam.aspect;
+    }
+
+    void CreateBounds()
+    {
+        // Получаем текущие границы видимости камеры
+        float left = -camWidth - boundaryOffset;
+        float right = camWidth + boundaryOffset;
+        float top = camHeight + boundaryOffset;
+        float bottom = -camHeight - boundaryOffset;
+
+        // Создаем или обновляем границы
+        UpdateBound(leftBound, "Left Bound",
+            new Vector2(left - boundaryThickness / 2, 0),
+            new Vector2(boundaryThickness, top - bottom));
+
+        UpdateBound(rightBound, "Right Bound",
+            new Vector2(right + boundaryThickness / 2, 0),
+            new Vector2(boundaryThickness, top - bottom));
+
+        UpdateBound(topBound, "Top Bound",
+            new Vector2(0, top + boundaryThickness / 2),
+            new Vector2(right - left, boundaryThickness));
+
+        UpdateBound(bottomBound, "Bottom Bound",
+            new Vector2(0, bottom - boundaryThickness / 2),
+            new Vector2(right - left, boundaryThickness));
+    }
+
+    void UpdateBound(GameObject bound, string name, Vector2 position, Vector2 size)
+    {
+        if (bound == null)
+        {
+            bound = new GameObject(name);
+            bound.transform.parent = transform;
+            bound.AddComponent<BoxCollider2D>();
+        }
+
+        bound.transform.position = position;
+        BoxCollider2D collider = bound.GetComponent<BoxCollider2D>();
+        collider.size = size;
+
+        // Делаем триггером, если хотим только детектировать
+        collider.isTrigger = false;
+    }
+
+    void Update()
+    {
+        // Если камера двигается, можно обновлять границы динамически
+        if (cam.transform.hasChanged)
+        {
+            CreateBounds();
+            cam.transform.hasChanged = false;
+        }
+    }
+
+    // Автоматически находим границы если не назначены
+    void OnValidate()
+    {
+        if (leftBound == null) leftBound = transform.Find("Left Bound")?.gameObject;
+        if (rightBound == null) rightBound = transform.Find("Right Bound")?.gameObject;
+        if (topBound == null) topBound = transform.Find("Top Bound")?.gameObject;
+        if (bottomBound == null) bottomBound = transform.Find("Bottom Bound")?.gameObject;
+    }
+
+    void OnDrawGizmos()
+    {
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return;
+
+        CalculateCameraSize();
+
+        Gizmos.color = Color.green;
+
+        // Рисуем границы видимости камеры
+        Vector3 camCenter = cam.transform.position;
+        Vector3 size = new Vector3(camWidth * 2, camHeight * 2, 0.1f);
+        Gizmos.DrawWireCube(camCenter, size);
+
+        // Рисуем границы сцены
+        Gizmos.color = Color.yellow;
+        float left = camCenter.x - camWidth - boundaryOffset;
+        float right = camCenter.x + camWidth + boundaryOffset;
+        float top = camCenter.y + camHeight + boundaryOffset;
+        float bottom = camCenter.y - camHeight - boundaryOffset;
+
+        Vector3 sceneCenter = new Vector3((left + right) / 2, (top + bottom) / 2, 0);
+        Vector3 sceneSize = new Vector3(right - left, top - bottom, 0.1f);
+        Gizmos.DrawWireCube(sceneCenter, sceneSize);
+    }
+}
+
+
+using UnityEngine;
+
+public class CameraController : MonoBehaviour
+{
+    [Header("Follow Settings")]
+    [SerializeField] private Transform target;
+    [SerializeField] private float smoothSpeed = 0.125f;
+    [SerializeField] private Vector3 offset = new Vector3(0, 0, -10);
+
+    [Header("Camera Bounds")]
+    [SerializeField] private bool useBounds = true;
+    [SerializeField] private Vector2 minBounds = new Vector2(-10, -10);
+    [SerializeField] private Vector2 maxBounds = new Vector2(10, 10);
+
+    [Header("Visualization")]
+    [SerializeField] private bool showBoundsInGame = true;
+
+    private Camera cam;
+    private float camHeight;
+    private float camWidth;
+
+    void Start()
+    {
+        cam = GetComponent<Camera>();
+
+        if (target == null && Player.Instance != null)
+        {
+            target = Player.Instance.transform;
+        }
+
+        CalculateCameraSize();
+    }
+
+    void LateUpdate()
+    {
+        if (target == null) return;
+
+        Vector3 desiredPosition = target.position + offset;
+
+        // Ограничиваем позицию камеры границами
+        if (useBounds)
+        {
+            desiredPosition = ClampCameraPosition(desiredPosition);
+        }
+
+        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
+        transform.position = smoothedPosition;
+    }
+
+    Vector3 ClampCameraPosition(Vector3 position)
+    {
+        CalculateCameraSize();
+
+        // Рассчитываем минимальные и максимальные позиции с учетом размера камеры
+        float minX = minBounds.x + camWidth;
+        float maxX = maxBounds.x - camWidth;
+        float minY = minBounds.y + camHeight;
+        float maxY = maxBounds.y - camHeight;
+
+        // Ограничиваем позицию
+        float clampedX = Mathf.Clamp(position.x, minX, maxX);
+        float clampedY = Mathf.Clamp(position.y, minY, maxY);
+
+        return new Vector3(clampedX, clampedY, position.z);
+    }
+
+    void CalculateCameraSize()
+    {
+        if (cam == null) return;
+
+        camHeight = cam.orthographicSize;
+        camWidth = camHeight * cam.aspect;
+    }
+
+    // Метод для установки границ
+    public void SetBounds(Vector2 min, Vector2 max)
+    {
+        minBounds = min;
+        maxBounds = max;
+        useBounds = true;
+    }
+
+    // Метод для отключения границ
+    public void DisableBounds()
+    {
+        useBounds = false;
+    }
+
+    // Визуализация границ в редакторе
+    void OnDrawGizmos()
+    {
+        if (!showBoundsInGame || !useBounds) return;
+
+        Gizmos.color = Color.yellow;
+
+        // Рисуем прямоугольник границ
+        Vector3 center = new Vector3(
+            (minBounds.x + maxBounds.x) / 2,
+            (minBounds.y + maxBounds.y) / 2,
+            0
+        );
+
+        Vector3 size = new Vector3(
+            maxBounds.x - minBounds.x,
+            maxBounds.y - minBounds.y,
+            0.1f
+        );
+
+        Gizmos.DrawWireCube(center, size);
+
+        // Если в игре, рисуем границы с учетом камеры
+        if (Application.isPlaying && cam != null)
+        {
+            CalculateCameraSize();
+
+            Gizmos.color = Color.red;
+
+            // Границы, внутри которых должен оставаться центр камеры
+            Vector3 camMinBounds = new Vector3(minBounds.x + camWidth, minBounds.y + camHeight, 0);
+            Vector3 camMaxBounds = new Vector3(maxBounds.x - camWidth, maxBounds.y - camHeight, 0);
+
+            Vector3 camCenter = new Vector3(
+                (camMinBounds.x + camMaxBounds.x) / 2,
+                (camMinBounds.y + camMaxBounds.y) / 2,
+                0
+            );
+
+            Vector3 camSize = new Vector3(
+                camMaxBounds.x - camMinBounds.x,
+                camMaxBounds.y - camMinBounds.y,
+                0.1f
+            );
+
+            Gizmos.DrawWireCube(camCenter, camSize);
+        }
+    }
+}
+
+using UnityEngine;
+using System.Collections;
+
+public class EnemyAI : MonoBehaviour
+{
+    [Header("Health Settings")]
+    [SerializeField] private int maxHealth = 50;
+
+    [Header("AI Settings")]
+    [SerializeField] private float detectionRange = 5f;
+    [SerializeField] private float attackRange = 1.5f;
+    [SerializeField] private float moveSpeed = 2f;
+    [SerializeField] private int attackDamage = 10;
+    [SerializeField] private float attackCooldown = 2f;
+
+    [Header("Animation Settings")]
+    [SerializeField] private Animator animator;
+
+    private int currentHealth;
+    private Transform player;
+    private SpriteRenderer spriteRenderer;
+    private Rigidbody2D rb;
+    private float lastAttackTime;
+    private bool isDead = false;
+    private bool isAttacking = false;
+
+    void Start()
+    {
+        // Получаем компоненты
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        rb = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
+        currentHealth = maxHealth;
+
+        // Находим игрока
+        if (Player.Instance != null)
+        {
+            player = Player.Instance.transform;
+            Debug.Log("Player found for enemy AI");
+        }
+        else
+        {
+            Debug.LogError("Player.Instance is null!");
+        }
+
+        // Гарантируем, что объект видим
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+            spriteRenderer.color = Color.red;
+        }
+
+        // Гарантируем, что есть коллайдер
+        if (GetComponent<Collider2D>() == null)
+        {
+            BoxCollider2D collider = gameObject.AddComponent<BoxCollider2D>();
+            collider.size = new Vector2(1, 1);
+        }
+
+        // Гарантируем тег
+        if (!gameObject.CompareTag("Enemy"))
+        {
+            gameObject.tag = "Enemy";
+        }
+
+        // Гарантируем, что есть Animator
+        if (animator == null)
+        {
+            animator = gameObject.AddComponent<Animator>();
+            Debug.Log("Added Animator component to enemy");
+        }
+
+        Debug.Log($"Enemy created. Health: {currentHealth}/{maxHealth}");
+    }
+
+    void Update()
+    {
+        if (isDead || player == null) return;
+
+        // Проверяем, жив ли игрок
+        if (Player.Instance != null && Player.Instance.IsDead())
+        {
+            rb.velocity = Vector2.zero;
+            UpdateAnimation(false, false);
+            return;
+        }
+
+        float distanceToPlayer = Vector2.Distance(transform.position, player.position);
+        bool isMoving = false;
+
+        // AI логика
+        if (distanceToPlayer <= detectionRange)
+        {
+            if (distanceToPlayer > attackRange)
+            {
+                // Движение к игроку
+                MoveTowardsPlayer();
+                isMoving = true;
+            }
+            else
+            {
+                // Атака
+                rb.velocity = Vector2.zero;
+
+                if (Time.time - lastAttackTime > attackCooldown)
+                {
+                    Attack();
+                }
+            }
+
+            // Поворот в сторону игрока
+            spriteRenderer.flipX = transform.position.x > player.position.x;
+        }
+        else
+        {
+            // Игрок вне диапазона - остановка
+            rb.velocity = Vector2.zero;
+        }
+
+        // Обновляем анимации
+        UpdateAnimation(isMoving, isAttacking);
+    }
+
+    void MoveTowardsPlayer()
+    {
+        Vector2 direction = (player.position - transform.position).normalized;
+        rb.velocity = direction * moveSpeed;
+    }
+
+    void Attack()
+    {
+        isAttacking = true;
+        lastAttackTime = Time.time;
+
+        Debug.Log($"Enemy attacks player! Damage: {attackDamage}");
+
+        // Запускаем анимацию атаки
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
+        // Проверяем попадание
+        if (Vector2.Distance(transform.position, player.position) <= attackRange)
+        {
+            if (Player.Instance != null && !Player.Instance.IsDead())
+            {
+                Player.Instance.TakeDamage(attackDamage);
+            }
+        }
+
+        // Завершаем атаку через время
+        Invoke("EndAttack", 0.5f);
+    }
+
+    void EndAttack()
+    {
+        isAttacking = false;
+    }
+
+    void UpdateAnimation(bool isMoving, bool isAttacking)
+    {
+        if (animator == null) return;
+
+        animator.SetBool("IsMoving", isMoving);
+        animator.SetBool("IsAttacking", isAttacking);
+    }
+
+    // Метод для получения урона от игрока
+    public void TakeDamage(int damage)
+    {
+        if (isDead) return;
+
+        currentHealth -= damage;
+        currentHealth = Mathf.Max(0, currentHealth);
+
+        Debug.Log($"Enemy took {damage} damage. Health: {currentHealth}/{maxHealth}");
+
+        // Визуальная обратная связь (мигание)
+        StartCoroutine(DamageFlash());
+
+        // Анимация получения урона
+        if (animator != null)
+        {
+            animator.SetTrigger("TakeDamage");
+        }
+
+        // Проверяем смерть
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+
+    IEnumerator DamageFlash()
+    {
+        if (spriteRenderer == null) yield break;
+
+        Color originalColor = spriteRenderer.color;
+        spriteRenderer.color = Color.white;
+        yield return new WaitForSeconds(0.1f);
+        spriteRenderer.color = originalColor;
+    }
+
+    void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+        Debug.Log("Enemy died!");
+
+        // Отключаем физику
+        rb.velocity = Vector2.zero;
+        rb.simulated = false;
+
+        // Отключаем коллайдер
+        Collider2D collider = GetComponent<Collider2D>();
+        if (collider != null)
+            collider.enabled = false;
+
+        // Анимация смерти
+        if (animator != null)
+        {
+            animator.SetTrigger("Die");
+            animator.SetBool("IsDead", true);
+        }
+
+        // Меняем цвет на серый
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = Color.gray;
+        }
+
+        // Уничтожаем объект через 2 секунды
+        Destroy(gameObject, 2f);
+    }
+
+    public bool IsDead()
+    {
+        return isDead;
+    }
+
+    public int GetCurrentHealth()
+    {
+        return currentHealth;
+    }
+
+    public int GetMaxHealth()
+    {
+        return maxHealth;
+    }
+
+    // Визуализация в редакторе
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, detectionRange);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+    }
+}
+
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class CollisionTester : MonoBehaviour
+{
+    void Update()
+    {
+        // Тест по кнопке T
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            TestPlayerAttack();
+        }
+    }
+
+    void TestPlayerAttack()
+    {
+        Debug.Log("=== MANUAL ATTACK TEST ===");
+
+        // 1. Проверяем игрока
+        if (Player.Instance == null)
+        {
+            Debug.LogError("Player.Instance is null!");
+            return;
+        }
+
+        Debug.Log($"Player position: {Player.Instance.transform.position}");
+        Debug.Log($"Player is attacking: {Player.Instance.IsAttacking()}");
+        Debug.Log($"Player attack collider active: {Player.Instance.IsAttackColliderActive()}");
+
+        // 2. Ищем врагов
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+        Debug.Log($"Found {enemies.Length} enemies");
+
+        foreach (GameObject enemy in enemies)
+        {
+            Debug.Log($"Enemy: {enemy.name} at {enemy.transform.position}");
+
+            // Проверяем дистанцию
+            float distance = Vector2.Distance(Player.Instance.transform.position, enemy.transform.position);
+            Debug.Log($"Distance to player: {distance:F2}");
+
+            // Проверяем коллайдер
+            Collider2D collider = enemy.GetComponent<Collider2D>();
+            if (collider == null)
+            {
+                Debug.LogError($"No collider on {enemy.name}!");
+            }
+            else
+            {
+                Debug.Log($"Collider: {collider.GetType().Name}, enabled: {collider.enabled}, isTrigger: {collider.isTrigger}");
+            }
+
+            // Проверяем скрипт
+            EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
+            if (enemyAI == null)
+            {
+                Debug.LogError($"No EnemyAI script on {enemy.name}!");
+            }
+            else
+            {
+                Debug.Log($"Enemy health: {enemyAI.GetCurrentHealth()}");
+
+                // Принудительно наносим урон для теста
+                if (distance < 3f)
+                {
+                    Debug.Log($"Forcing damage to {enemy.name}");
+                    enemyAI.TakeDamage(10);
+                }
+            }
+        }
+
+        Debug.Log("=== TEST COMPLETE ===");
+    }
+}
+
+
+
+using UnityEngine;
+
+public class EnemyDebug : MonoBehaviour
+{
+    [Header("Debug Settings")]
+    [SerializeField] private bool showDebugInfo = true;
+    [SerializeField] private Color debugColor = Color.red;
+
+    private EnemyAI enemyAI;
+    private Collider2D enemyCollider;
+
+    void Start()
+    {
+        enemyAI = GetComponent<EnemyAI>();
+        enemyCollider = GetComponent<Collider2D>();
+
+        if (showDebugInfo)
+        {
+            Debug.Log($"=== ENEMY DEBUG INFO ===");
+            Debug.Log($"Name: {gameObject.name}");
+            Debug.Log($"Position: {transform.position}");
+            Debug.Log($"Tag: {gameObject.tag}");
+            Debug.Log($"Collider: {enemyCollider} (enabled: {enemyCollider?.enabled})");
+            Debug.Log($"SpriteRenderer: {GetComponent<SpriteRenderer>()?.enabled}");
+
+            // Теперь будет работать, так как метод добавлен
+            if (enemyAI != null)
+            {
+                Debug.Log($"Health: {enemyAI.GetCurrentHealth()}/{enemyAI.GetMaxHealth()}");
+            }
+
+            Debug.Log($"=========================");
+        }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"Enemy trigger with: {other.name}");
+            Debug.Log($"Other tag: {other.tag}");
+
+            PlayerAttackCollider attack = other.GetComponent<PlayerAttackCollider>();
+            if (attack != null)
+            {
+                Debug.Log("PLAYER ATTACK HIT DETECTED!");
+            }
+        }
+    }
+
+    void OnDrawGizmos()
+    {
+        if (!showDebugInfo) return;
+
+        if (enemyCollider != null)
+        {
+            Gizmos.color = debugColor;
+
+            if (enemyCollider is BoxCollider2D box)
+            {
+                Gizmos.DrawWireCube(transform.position + (Vector3)box.offset, box.size);
+            }
+        }
+
+        if (Player.Instance != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, Player.Instance.transform.position);
+
+            Vector3 labelPos = transform.position + Vector3.up * 2;
+            UnityEditor.Handles.Label(labelPos,
+                $"Dist: {Vector2.Distance(transform.position, Player.Instance.transform.position):F1}");
+        }
+    }
+}
+
+
+using UnityEngine;
+
+public class PlayerAttackCollider : MonoBehaviour
+{
+    [SerializeField] private int damage = 15;
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        Debug.Log($"Attack collider hit: {other.name} (Tag: {other.tag})");
+
+        if (other.CompareTag("Enemy"))
+        {
+            EnemyAI enemy = other.GetComponent<EnemyAI>();
+            if (enemy != null && !enemy.IsDead())
+            {
+                Debug.Log($"Dealing {damage} damage to enemy");
+                enemy.TakeDamage(damage);
+            }
+            else
+            {
+                Debug.Log($"Enemy component not found or enemy is dead");
+            }
+        }
+    }
+
+    void OnDrawGizmos()
+    {
+        // Визуализация коллайдера атаки
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null && col.enabled)
+        {
+            Gizmos.color = Color.red;
+
+            if (col is BoxCollider2D box)
+            {
+                Gizmos.DrawWireCube(transform.position + (Vector3)box.offset, box.size);
+            }
+            else if (col is PolygonCollider2D poly)
+            {
+                for (int i = 0; i < poly.points.Length; i++)
+                {
+                    int next = (i + 1) % poly.points.Length;
+                    Gizmos.DrawLine(
+                        transform.position + (Vector3)poly.points[i],
+                        transform.position + (Vector3)poly.points[next]
+                    );
+                }
+            }
+        }
+    }
+}
+
+
+using System;
+using UnityEngine;
+
+public class Gameinput : MonoBehaviour
+{
+    public static Gameinput Instance { get; private set; }
+
+    public event EventHandler OnPlayerAttack;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    private void Update()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            OnPlayerAttack?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public Vector2 GetMovmentVector()
+    {
+        float horizontal = Input.GetAxis("Horizontal");
+        float vertical = Input.GetAxis("Vertical");
+
+        return new Vector2(horizontal, vertical);
+    }
+
+    public Vector3 GetMousePosition()
+    {
+        return Input.mousePosition;
+    }
+}
